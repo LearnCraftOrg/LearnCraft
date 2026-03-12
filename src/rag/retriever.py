@@ -1,53 +1,50 @@
-"""날짜 필터 + MMR 유사도 검색 retriever."""
-from langchain_core.vectorstores import VectorStoreRetriever
+"""헤딩 임베딩 기반 검색 retriever.
 
+두 가지 검색 모드:
+- retrieve_by_date: 날짜 지정 → 해당 날짜의 ## 섹션 전체 반환 (semantic 필터 없음)
+- retrieve_by_query: 쿼리 입력 → 쿼리 임베딩 ↔ 헤딩 임베딩 유사도 비교로 관련 섹션 검색
+"""
 from config.settings import RETRIEVAL_K
 from src.vectorstore.store import get_vectorstore
 
 
-def get_retriever(date: str) -> VectorStoreRetriever:
+def retrieve_by_date(date: str) -> str:
     """
-    특정 날짜의 청크만 대상으로 MMR 검색하는 retriever 반환.
+    날짜 기반: 해당 날짜의 모든 ## 섹션 반환.
+    단일 날짜 퀴즈/가이드 생성 시 완전한 강의 커버리지 보장.
 
     Args:
-        date: 'YYYY-MM-DD' 형식
+        date: 검색 대상 날짜 (YYYY-MM-DD)
     """
     vs = get_vectorstore()
-    return vs.as_retriever(
-        search_type="mmr",
-        search_kwargs={
-            "k": RETRIEVAL_K,
-            "fetch_k": RETRIEVAL_K * 3,
-            "filter": {"date": date},
-        },
+    result = vs.get(where={"$and": [{"date": date}, {"heading_level": 2}]})
+    return "\n\n".join(
+        meta["section_content"]
+        for meta in result["metadatas"]
+        if meta.get("section_content")
     )
 
 
-def retrieve_context(date: str, query: str) -> str:
+def retrieve_by_query(query: str, dates: list[str] | None = None) -> str:
     """
-    날짜 기반 retriever로 관련 청크를 검색해 하나의 문자열로 반환.
+    내용 기반: 쿼리 임베딩과 ## / ### 헤딩 임베딩 유사도 비교 후 관련 섹션 반환.
+    dates 지정 시 해당 날짜들로 검색 범위 제한.
 
     Args:
-        date: 검색 대상 날짜
-        query: 검색 쿼리 (학습 목표 또는 주제)
-    """
-    retriever = get_retriever(date)
-    docs = retriever.invoke(query)
-    return "\n\n".join(doc.page_content for doc in docs)
-
-
-def retrieve_context_multi(dates: list[str], query: str) -> str:
-    """
-    다중 날짜 또는 전체 대상으로 MMR 검색해 하나의 문자열로 반환.
-
-    Args:
-        dates: 검색 대상 날짜 목록. 빈 리스트면 전체 검색.
         query: 검색 쿼리
+        dates: 검색 범위 날짜 목록. None 또는 빈 리스트면 전체 검색.
     """
     vs = get_vectorstore()
-    search_kwargs: dict = {"k": RETRIEVAL_K, "fetch_k": RETRIEVAL_K * 3}
+    search_kwargs: dict = {"k": RETRIEVAL_K}
     if dates:
         search_kwargs["filter"] = {"date": {"$in": dates}}
-    retriever = vs.as_retriever(search_type="mmr", search_kwargs=search_kwargs)
-    docs = retriever.invoke(query)
-    return "\n\n".join(doc.page_content for doc in docs)
+    docs = vs.similarity_search(query, **search_kwargs)
+
+    seen: set[str] = set()
+    results: list[str] = []
+    for doc in docs:
+        key = f"{doc.metadata['date']}::{doc.metadata['section_key']}"
+        if key not in seen:
+            seen.add(key)
+            results.append(doc.metadata["section_content"])
+    return "\n\n".join(results)

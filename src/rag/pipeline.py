@@ -1,45 +1,37 @@
-"""강의 날짜 기반 RAG 컨텍스트 구성 파이프라인."""
+"""강의 RAG 컨텍스트 구성 파이프라인."""
 from src.ingestion.loader import load_curriculum
-from src.rag.retriever import retrieve_context, retrieve_context_multi
+from src.rag.retriever import retrieve_by_date, retrieve_by_query
 
 
-def build_context(date: str) -> dict:
+def build_context_by_date(date: str) -> dict:
     """
-    특정 날짜에 대한 RAG 컨텍스트를 구성.
+    단일 날짜 기반 컨텍스트 구성. 해당 날짜의 모든 섹션을 반환.
 
     Returns:
         {
             "date": str,
-            "curriculum": dict,       # 커리큘럼 메타데이터
-            "lecture_context": str,   # 검색된 강의 청크
-            "query": str,             # 검색에 사용한 쿼리
+            "curriculum": dict,
+            "lecture_context": str,
         }
     """
     curriculum_map = load_curriculum()
     curriculum = curriculum_map.get(date, {})
-
-    # 학습목표를 검색 쿼리로 사용 (없으면 날짜로 폴백)
-    query = curriculum.get("learning_goal", date)
-    if not query:
-        query = curriculum.get("content", date)
-
-    lecture_context = retrieve_context(date, query)
+    lecture_context = retrieve_by_date(date)
 
     return {
         "date": date,
         "curriculum": curriculum,
         "lecture_context": lecture_context,
-        "query": query,
     }
 
 
-def build_context_multi(dates: list[str], user_query: str | None = None) -> dict:
+def build_context_by_query(dates: list[str], user_query: str | None = None) -> dict:
     """
-    다중 날짜 또는 텍스트 쿼리 기반 RAG 컨텍스트 구성.
+    쿼리 기반 컨텍스트 구성. 쿼리와 헤딩 임베딩 유사도로 관련 섹션 검색.
 
     Args:
-        dates: 검색 대상 날짜 목록. 빈 리스트면 전체 검색.
-        user_query: 사용자가 직접 입력한 쿼리 (없으면 첫 날짜의 학습목표 사용)
+        dates: 검색 범위 날짜 목록. 빈 리스트면 전체 검색.
+        user_query: 검색 쿼리 (없으면 첫 날짜의 학습목표 사용)
 
     Returns:
         {dates, curriculum_summary, lecture_context, query}
@@ -57,7 +49,7 @@ def build_context_multi(dates: list[str], user_query: str | None = None) -> dict
     else:
         query = user_query or ""
 
-    lecture_context = retrieve_context_multi(dates, query)
+    lecture_context = retrieve_by_query(query, dates or None)
     return {
         "dates": dates,
         "curriculum_summary": curriculum_summary,
