@@ -8,8 +8,7 @@ if str(ROOT) not in sys.path:
 
 import streamlit as st
 
-from src.ingestion.loader import get_available_dates, load_curriculum, load_script
-from src.ingestion.preprocessor import preprocess
+from src.ingestion.loader import get_available_dates, load_curriculum, load_clean_script
 from src.ingestion.chunker import chunk_text
 from src.vectorstore.store import is_date_indexed, add_documents, delete_date, get_indexed_dates
 
@@ -91,14 +90,13 @@ if run_index or run_reindex:
                 progress_bar.progress((i + 1) / len(selected_dates))
                 continue
 
-            # 스크립트 로드 및 전처리
-            raw = load_script(date)
-            if not raw:
-                status_box.error(f"{date} 스크립트 파일을 찾을 수 없습니다.")
+            # clean 스크립트 로드
+            text = load_clean_script(date)
+            if not text:
+                status_box.error(f"{date} clean 파일을 찾을 수 없습니다. (data/clean/{date}_clean.txt)")
                 continue
 
             info = curriculum_map.get(date, {})
-            text = preprocess(raw)
 
             # 청크 생성
             metadata = {

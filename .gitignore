@@ -3,3 +3,6 @@
 
 # Data
 data/
+
+# Test
+app/tests/

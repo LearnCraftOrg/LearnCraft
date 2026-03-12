@@ -4,7 +4,7 @@ from typing import Optional
 import re
 import pandas as pd
 
-from config.settings import SCRIPTS_DIR, CURRICULUM_PATH
+from config.settings import SCRIPTS_DIR, CLEAN_DIR, CURRICULUM_PATH
 
 # 파일명 날짜 패턴: 2026-02-27_kdt-backendj-21th.txt
 _DATE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})")
@@ -25,6 +25,14 @@ def load_script(date: str) -> Optional[str]:
     for p in SCRIPTS_DIR.glob("*.txt"):
         if date in p.name:
             return p.read_text(encoding="utf-8")
+    return None
+
+
+def load_clean_script(date: str) -> Optional[str]:
+    """특정 날짜의 전처리된 clean 텍스트 반환. 파일이 없으면 None 반환."""
+    clean_path = CLEAN_DIR / f"{date}_clean.txt"
+    if clean_path.exists():
+        return clean_path.read_text(encoding="utf-8")
     return None
 
 

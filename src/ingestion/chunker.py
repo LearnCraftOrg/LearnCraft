@@ -1,5 +1,5 @@
 """정제된 텍스트를 LangChain Document 청크로 분할."""
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 
 from config.settings import CHUNK_SIZE, CHUNK_OVERLAP
