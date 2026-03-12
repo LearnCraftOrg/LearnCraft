@@ -34,3 +34,20 @@ def retrieve_context(date: str, query: str) -> str:
     retriever = get_retriever(date)
     docs = retriever.invoke(query)
     return "\n\n".join(doc.page_content for doc in docs)
+
+
+def retrieve_context_multi(dates: list[str], query: str) -> str:
+    """
+    다중 날짜 또는 전체 대상으로 MMR 검색해 하나의 문자열로 반환.
+
+    Args:
+        dates: 검색 대상 날짜 목록. 빈 리스트면 전체 검색.
+        query: 검색 쿼리
+    """
+    vs = get_vectorstore()
+    search_kwargs: dict = {"k": RETRIEVAL_K, "fetch_k": RETRIEVAL_K * 3}
+    if dates:
+        search_kwargs["filter"] = {"date": {"$in": dates}}
+    retriever = vs.as_retriever(search_type="mmr", search_kwargs=search_kwargs)
+    docs = retriever.invoke(query)
+    return "\n\n".join(doc.page_content for doc in docs)
