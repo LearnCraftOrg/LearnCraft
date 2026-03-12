@@ -4,16 +4,16 @@ from typing import Optional
 import re
 import pandas as pd
 
-from config.settings import SCRIPTS_DIR, CLEAN_DIR, CURRICULUM_PATH
+from config.settings import SCRIPTS_DIR, CLEAN_DIR, REFINED_DIR, CURRICULUM_PATH
 
 # 파일명 날짜 패턴: 2026-02-27_kdt-backendj-21th.txt
 _DATE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})")
 
 
 def get_available_dates() -> list[str]:
-    """스크립트 디렉토리에서 사용 가능한 날짜 목록 반환 (정렬)."""
+    """사용 가능한 날짜 목록 반환 (정렬)."""
     dates = []
-    for p in sorted(SCRIPTS_DIR.glob("*.txt")):
+    for p in sorted(REFINED_DIR.glob("*_refined.md")):
         m = _DATE_RE.search(p.name)
         if m:
             dates.append(m.group(1))
@@ -21,10 +21,10 @@ def get_available_dates() -> list[str]:
 
 
 def load_script(date: str) -> Optional[str]:
-    """특정 날짜의 강의 스크립트 raw 텍스트 반환."""
-    for p in SCRIPTS_DIR.glob("*.txt"):
-        if date in p.name:
-            return p.read_text(encoding="utf-8")
+    """특정 날짜의 강의 텍스트 반환."""
+    path = REFINED_DIR / f"{date}_refined.md"
+    if path.exists():
+        return path.read_text(encoding="utf-8")
     return None
 
 
@@ -34,6 +34,17 @@ def load_clean_script(date: str) -> Optional[str]:
     if clean_path.exists():
         return clean_path.read_text(encoding="utf-8")
     return None
+
+
+def extract_stt_metadata(date: str) -> dict:
+    """refined.md의 ## 헤딩을 파싱해 STT 기반 메타데이터 반환."""
+    text = load_script(date)
+    if not text:
+        return {"subject": "", "content": "", "learning_goal": ""}
+    headings = re.findall(r'^## (.+)', text, re.MULTILINE)
+    content = headings[0] if headings else ""
+    learning_goal = " / ".join(headings) if headings else ""
+    return {"subject": "", "content": content, "learning_goal": learning_goal}
 
 
 def load_curriculum() -> dict[str, dict]:
