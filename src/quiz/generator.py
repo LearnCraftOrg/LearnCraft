@@ -1,6 +1,10 @@
 """GPT-4o를 사용한 퀴즈 생성 엔진."""
 import json
+import re
+from typing import Literal
+
 from openai import OpenAI
+from pydantic import BaseModel, model_validator
 
 from config.settings import LLM_MODEL, OPENAI_API_KEY
 from src.quiz.prompts import QUIZ_SYSTEM_PROMPT, QUIZ_USER_PROMPT, QUIZ_MULTI_USER_PROMPT
@@ -15,6 +19,70 @@ def _get_client() -> OpenAI:
         _client = OpenAI(api_key=OPENAI_API_KEY)
     return _client
 
+
+# ── Pydantic schema ───────────────────────────────────────────────────────────
+
+class QuizOptions(BaseModel):
+    A: str
+    B: str
+    C: str
+    D: str
+
+
+class QuizItem(BaseModel):
+    type: Literal["multiple_choice", "short_answer"]
+    question: str
+    options: QuizOptions | None = None
+    answer: str
+    explanation: str
+
+    @model_validator(mode="after")
+    def check_mcq(self) -> "QuizItem":
+        if self.type == "multiple_choice":
+            if self.options is None:
+                raise ValueError("multiple_choice requires options A/B/C/D")
+            if self.answer not in ("A", "B", "C", "D"):
+                raise ValueError(f"answer must be A/B/C/D for MCQ, got '{self.answer}'")
+        return self
+
+
+class QuizResponse(BaseModel):
+    quizzes: list[QuizItem]
+
+
+# ── Parsing helpers ───────────────────────────────────────────────────────────
+
+def _extract_json(text: str) -> str:
+    """<thinking> 블록 제거 후 ```json 코드 블록 추출."""
+    text = re.sub(r"<thinking>.*?</thinking>", "", text, flags=re.DOTALL).strip()
+
+    match = re.search(r"```json\s*(.*?)\s*```", text, re.DOTALL)
+    if match:
+        return match.group(1)
+
+    # fallback: 중괄호로 감싸진 JSON 객체 탐색
+    match = re.search(r"\{.*\}", text, re.DOTALL)
+    if match:
+        return match.group(0)
+
+    raise ValueError("LLM 응답에서 JSON 블록을 찾을 수 없습니다.")
+
+
+def _call_and_validate(messages: list[dict]) -> dict:
+    """LLM 호출 → JSON 추출 → Pydantic 검증 → dict 반환."""
+    response = _get_client().chat.completions.create(
+        model=LLM_MODEL,
+        messages=messages,
+        temperature=0.7,
+    )
+    raw_text = response.choices[0].message.content
+    json_str = _extract_json(raw_text)
+    data = json.loads(json_str)
+    validated = QuizResponse.model_validate(data)
+    return validated.model_dump()
+
+
+# ── Public API ────────────────────────────────────────────────────────────────
 
 def generate_quiz(date: str) -> dict:
     """
@@ -38,17 +106,10 @@ def generate_quiz(date: str) -> dict:
         lecture_context=ctx["lecture_context"],
     )
 
-    response = _get_client().chat.completions.create(
-        model=LLM_MODEL,
-        response_format={"type": "json_object"},
-        messages=[
-            {"role": "system", "content": QUIZ_SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt},
-        ],
-        temperature=0.7,
-    )
-
-    return json.loads(response.choices[0].message.content)
+    return _call_and_validate([
+        {"role": "system", "content": QUIZ_SYSTEM_PROMPT},
+        {"role": "user", "content": user_prompt},
+    ])
 
 
 def generate_quiz_multi(dates: list[str], user_query: str | None = None) -> dict:
@@ -74,14 +135,7 @@ def generate_quiz_multi(dates: list[str], user_query: str | None = None) -> dict
         lecture_context=ctx["lecture_context"],
     )
 
-    response = _get_client().chat.completions.create(
-        model=LLM_MODEL,
-        response_format={"type": "json_object"},
-        messages=[
-            {"role": "system", "content": QUIZ_SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt},
-        ],
-        temperature=0.7,
-    )
-
-    return json.loads(response.choices[0].message.content)
+    return _call_and_validate([
+        {"role": "system", "content": QUIZ_SYSTEM_PROMPT},
+        {"role": "user", "content": user_prompt},
+    ])
