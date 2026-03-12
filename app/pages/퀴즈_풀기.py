@@ -9,28 +9,25 @@ if str(ROOT) not in sys.path:
 import streamlit as st
 
 from src.vectorstore.store import get_indexed_dates
-from src.ingestion.loader import load_curriculum
-from src.quiz.generator import generate_quiz_multi
+from src.ingestion.loader import extract_stt_metadata
+from src.quiz.generator import generate_quiz, generate_quiz_multi
 
 st.set_page_config(page_title="퀴즈 풀기", page_icon="📝", layout="wide")
 st.title("📝 복습 퀴즈")
 
 indexed_dates = get_indexed_dates()
-curriculum_map = load_curriculum()
 
 if not indexed_dates:
-    st.warning("인덱싱된 강의가 없습니다. **강의 인덱싱** 페이지에서 먼저 인덱싱하세요.")
+    st.warning("인덱싱된 강의가 없습니다. 홈 화면을 새로고침하세요.")
     st.stop()
 
 # ── 체크리스트 ──────────────────────────────────────────────
 st.subheader("강의 선택")
 selected_dates = []
 for date in indexed_dates:
-    info = curriculum_map.get(date, {})
-    week = info.get("week", "")
-    subject = info.get("subject", "")
-    content = info.get("content", "")[:25]
-    label = f"{date} | {week}주차 | {subject} - {content}"
+    meta = extract_stt_metadata(date)
+    content_preview = meta["content"][:35] if meta["content"] else date
+    label = f"{date} | {content_preview}"
     if st.checkbox(label, key=f"chk_{date}"):
         selected_dates.append(date)
 
@@ -54,10 +51,15 @@ if st.button("🎲 문제 생성", type="primary", disabled=not can_submit):
     # 우선순위: 체크리스트 > 텍스트
     with st.spinner("GPT-4o가 퀴즈를 생성 중입니다..."):
         try:
-            result = generate_quiz_multi(
-                dates=selected_dates,
-                user_query=user_query.strip() if has_text else None,
-            )
+            # 단일 날짜 + 쿼리 없음: 해당 날짜 전체 섹션 커버리지
+            # 그 외: 쿼리 기반 검색 (다중 날짜 또는 텍스트 쿼리)
+            if len(selected_dates) == 1 and not has_text:
+                result = generate_quiz(selected_dates[0])
+            else:
+                result = generate_quiz_multi(
+                    dates=selected_dates,
+                    user_query=user_query.strip() if has_text else None,
+                )
             st.session_state["quiz_data"] = result.get("quizzes", [])
             st.session_state["quiz_key"] = (tuple(selected_dates), user_query.strip())
             st.session_state["quiz_answers"] = {}

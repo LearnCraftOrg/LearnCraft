@@ -4,7 +4,7 @@ from openai import OpenAI
 
 from config.settings import LLM_MODEL, OPENAI_API_KEY
 from src.quiz.prompts import GUIDE_SYSTEM_PROMPT, GUIDE_USER_PROMPT
-from src.rag.pipeline import build_context
+from src.rag.pipeline import build_context_by_date
 
 _client = None
 
@@ -30,7 +30,7 @@ def generate_guide(date: str) -> dict:
             "review_points": [str, ...]
         }
     """
-    ctx = build_context(date)
+    ctx = build_context_by_date(date)
     curriculum = ctx["curriculum"]
 
     user_prompt = GUIDE_USER_PROMPT.format(

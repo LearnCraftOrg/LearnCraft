@@ -4,7 +4,7 @@ from openai import OpenAI
 
 from config.settings import LLM_MODEL, OPENAI_API_KEY
 from src.quiz.prompts import QUIZ_SYSTEM_PROMPT, QUIZ_USER_PROMPT, QUIZ_MULTI_USER_PROMPT
-from src.rag.pipeline import build_context, build_context_multi
+from src.rag.pipeline import build_context_by_date, build_context_by_query
 
 _client = None
 
@@ -27,7 +27,7 @@ def generate_quiz(date: str) -> dict:
         {"quizzes": [...]} 구조의 dict
         각 quiz: {type, question, options(MCQ만), answer, explanation}
     """
-    ctx = build_context(date)
+    ctx = build_context_by_date(date)
     curriculum = ctx["curriculum"]
 
     user_prompt = QUIZ_USER_PROMPT.format(
@@ -62,7 +62,7 @@ def generate_quiz_multi(dates: list[str], user_query: str | None = None) -> dict
     Returns:
         {"quizzes": [...]} 구조의 dict
     """
-    ctx = build_context_multi(dates, user_query)
+    ctx = build_context_by_query(dates, user_query)
 
     user_query_section = ""
     if user_query and user_query.strip():
