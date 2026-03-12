@@ -10,7 +10,7 @@ import streamlit as st
 
 from src.vectorstore.store import get_indexed_dates
 from src.ingestion.loader import load_curriculum
-from src.quiz.generator import generate_quiz
+from src.quiz.generator import generate_quiz_multi
 
 st.set_page_config(page_title="퀴즈 풀기", page_icon="📝", layout="wide")
 st.title("📝 복습 퀴즈")
@@ -22,31 +22,52 @@ if not indexed_dates:
     st.warning("인덱싱된 강의가 없습니다. **강의 인덱싱** 페이지에서 먼저 인덱싱하세요.")
     st.stop()
 
-# 날짜 선택
-date_labels = {
-    d: f"{d} | {curriculum_map.get(d, {}).get('subject', '')} - {curriculum_map.get(d, {}).get('content', '')[:30]}"
-    for d in indexed_dates
-}
-selected_label = st.selectbox("강의 날짜 선택", options=list(date_labels.values()))
-selected_date = [d for d, l in date_labels.items() if l == selected_label][0]
+# ── 체크리스트 ──────────────────────────────────────────────
+st.subheader("강의 선택")
+selected_dates = []
+for date in indexed_dates:
+    info = curriculum_map.get(date, {})
+    week = info.get("week", "")
+    subject = info.get("subject", "")
+    content = info.get("content", "")[:25]
+    label = f"{date} | {week}주차 | {subject} - {content}"
+    if st.checkbox(label, key=f"chk_{date}"):
+        selected_dates.append(date)
 
-info = curriculum_map.get(selected_date, {})
-st.caption(f"📌 학습 목표: {info.get('learning_goal', '-')}")
+st.divider()
 
-# 퀴즈 생성 버튼
-if st.button("🎲 퀴즈 생성", type="primary"):
+# ── 텍스트 입력 ─────────────────────────────────────────────
+user_query = st.text_area(
+    label="문제 생성 범위",
+    placeholder="문제 생성 주제를 입력하세요\n예) 특정 기간 내 범위에 대한 문제를 생성해줘",
+    label_visibility="collapsed",
+    height=100,
+    key="user_query_input",
+)
+
+# ── 전송 버튼 ────────────────────────────────────────────────
+has_dates = len(selected_dates) > 0
+has_text = bool(user_query.strip())
+can_submit = has_dates or has_text
+
+if st.button("🎲 문제 생성", type="primary", disabled=not can_submit):
+    # 우선순위: 체크리스트 > 텍스트
     with st.spinner("GPT-4o가 퀴즈를 생성 중입니다..."):
         try:
-            result = generate_quiz(selected_date)
+            result = generate_quiz_multi(
+                dates=selected_dates,
+                user_query=user_query.strip() if has_text else None,
+            )
             st.session_state["quiz_data"] = result.get("quizzes", [])
-            st.session_state["quiz_date"] = selected_date
+            st.session_state["quiz_key"] = (tuple(selected_dates), user_query.strip())
             st.session_state["quiz_answers"] = {}
             st.session_state["quiz_submitted"] = False
         except Exception as e:
             st.error(f"퀴즈 생성 실패: {e}")
 
-# 퀴즈 표시
-if st.session_state.get("quiz_data") and st.session_state.get("quiz_date") == selected_date:
+# ── 퀴즈 표시 ────────────────────────────────────────────────
+current_key = (tuple(selected_dates), user_query.strip())
+if st.session_state.get("quiz_data") and st.session_state.get("quiz_key") == current_key:
     quizzes = st.session_state["quiz_data"]
     submitted = st.session_state.get("quiz_submitted", False)
     answers = st.session_state.get("quiz_answers", {})
@@ -81,7 +102,6 @@ if st.session_state.get("quiz_data") and st.session_state.get("quiz_date") == se
                 )
                 answers[q_num] = user_ans
 
-            # 제출 후 정답/해설 표시
             if submitted:
                 correct_ans = q["answer"]
                 user_ans = answers.get(q_num, "")
@@ -105,7 +125,6 @@ if st.session_state.get("quiz_data") and st.session_state.get("quiz_date") == se
                 st.rerun()
 
     if submitted:
-        # 점수 계산
         correct = 0
         for i, q in enumerate(quizzes):
             q_num = i + 1
