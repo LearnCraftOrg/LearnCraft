@@ -1,11 +1,11 @@
 """강의 RAG 컨텍스트 구성 파이프라인."""
 from src.ingestion.loader import load_curriculum
-from src.rag.retriever import retrieve_by_date, retrieve_by_query
+from src.rag.retriever import retrieve_by_query
 
 
 def build_context_by_date(date: str) -> dict:
     """
-    단일 날짜 기반 컨텍스트 구성. 해당 날짜의 모든 섹션을 반환.
+    단일 날짜 기반 컨텍스트 구성. 커리큘럼 학습목표로 semantic search하여 관련 섹션 반환.
 
     Returns:
         {
@@ -16,7 +16,8 @@ def build_context_by_date(date: str) -> dict:
     """
     curriculum_map = load_curriculum()
     curriculum = curriculum_map.get(date, {})
-    lecture_context = retrieve_by_date(date)
+    query = curriculum.get("learning_goal", "") or curriculum.get("content", date)
+    lecture_context = retrieve_by_query(query, dates=[date])
 
     return {
         "date": date,

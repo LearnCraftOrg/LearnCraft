@@ -82,6 +82,41 @@ def _call_and_validate(messages: list[dict]) -> dict:
     return validated.model_dump()
 
 
+# ── Context-based API (로딩 화면 단계 분리용) ────────────────────────────────
+
+def generate_quiz_from_context(ctx: dict) -> dict:
+    """build_context_by_date() 결과를 받아 LLM 호출만 수행."""
+    curriculum = ctx["curriculum"]
+    date = ctx["date"]
+    user_prompt = QUIZ_USER_PROMPT.format(
+        date=date,
+        subject=curriculum.get("subject", ""),
+        content=curriculum.get("content", ""),
+        learning_goal=curriculum.get("learning_goal", ""),
+        lecture_context=ctx["lecture_context"],
+    )
+    return _call_and_validate([
+        {"role": "system", "content": QUIZ_SYSTEM_PROMPT},
+        {"role": "user", "content": user_prompt},
+    ])
+
+
+def generate_quiz_multi_from_context(ctx: dict, user_query: str | None = None) -> dict:
+    """build_context_by_query() 결과를 받아 LLM 호출만 수행."""
+    user_query_section = ""
+    if user_query and user_query.strip():
+        user_query_section = f"## 문제 생성 요청\n{user_query.strip()}\n"
+    user_prompt = QUIZ_MULTI_USER_PROMPT.format(
+        curriculum_summary=ctx["curriculum_summary"] or "전체 강의",
+        user_query_section=user_query_section,
+        lecture_context=ctx["lecture_context"],
+    )
+    return _call_and_validate([
+        {"role": "system", "content": QUIZ_SYSTEM_PROMPT},
+        {"role": "user", "content": user_prompt},
+    ])
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def generate_quiz(date: str) -> dict:

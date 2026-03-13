@@ -11,7 +11,8 @@ import streamlit as st
 
 from src.vectorstore.store import get_indexed_dates
 from src.ingestion.loader import extract_stt_metadata
-from src.quiz.generator import generate_quiz, generate_quiz_multi
+from src.rag.pipeline import build_context_by_date, build_context_by_query
+from src.quiz.generator import generate_quiz_from_context, generate_quiz_multi_from_context
 
 st.set_page_config(page_title="퀴즈 풀기", page_icon="📝", layout="wide")
 st.title("📝 복습 퀴즈")
@@ -82,29 +83,53 @@ def render_selection_view():
 
 # ── 뷰 2: 로딩 ───────────────────────────────────────────────
 def render_loading_view():
-    st.markdown("## 퀴즈를 생성하고 있습니다...")
+    st.markdown("""
+    <style>
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.25); opacity: 0.65; }
+    }
+    .loading-icon {
+        font-size: 5rem;
+        animation: pulse 1.4s ease-in-out infinite;
+        display: block;
+        text-align: center;
+        margin: 1.5rem 0;
+    }
+    </style>
+    <span class="loading-icon">📚</span>
+    """, unsafe_allow_html=True)
 
     dates = st.session_state["quiz_selected_dates"]
     query = st.session_state["quiz_user_query"]
     has_text = bool(query)
+    is_single = len(dates) == 1 and not has_text
 
-    with st.spinner("GPT-4o가 퀴즈를 생성 중입니다. 잠시만 기다려주세요..."):
+    with st.status("퀴즈 준비 중...", expanded=True) as status:
         try:
-            if len(dates) == 1 and not has_text:
-                result = generate_quiz(dates[0])
+            st.write("📄 문서 불러오는 중...")
+            if is_single:
+                ctx = build_context_by_date(dates[0])
             else:
-                result = generate_quiz_multi(
-                    dates=dates,
-                    user_query=query if has_text else None,
-                )
-            st.session_state["quiz_data"] = result.get("quizzes", [])
+                ctx = build_context_by_query(dates, query if has_text else None)
+            st.write("✅ 문서 불러오기 완료")
+
+            st.write("🤖 GPT-4o mini로 문제 생성 중...")
+            if is_single:
+                result = generate_quiz_from_context(ctx)
+            else:
+                result = generate_quiz_multi_from_context(ctx, query if has_text else None)
+
+            status.update(label="✅ 퀴즈 준비 완료!", state="complete")
         except Exception as e:
+            status.update(label="❌ 생성 실패", state="error")
             st.error(f"퀴즈 생성 실패: {e}")
             if st.button("선택 화면으로 돌아가기"):
                 st.session_state["view"] = "selection"
                 st.rerun()
             return
 
+    st.session_state["quiz_data"] = result.get("quizzes", [])
     st.session_state["quiz_idx"] = 0
     st.session_state["quiz_answers"] = {}
     st.session_state["quiz_checked"] = {}
