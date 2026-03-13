@@ -12,7 +12,7 @@
 | `main`       | 배포용             |
 | `develop`    | 개발본이 모이는 통합 브랜치 |
 | `feat/`*     | 기능 개발           |
-| `fix/*`      | 버그 수정           |
+| `fix/`*      | 버그 수정           |
 | `refactor/*` | 리팩토링            |
 
 
@@ -23,19 +23,11 @@
 
 ## 단계별 가이드
 
-### 1. 이슈를 먼저 만든다
-
-Jira 또는 GitHub Issue에 할 일을 하나 만듭니다.
+### 1. Jira에 이슈를 먼저 만든다
 
 ```text
-SCRUM-12: 퀴즈 생성기 개선
+SCRUM-12: improve-quiz-generator
 ```
-
-이슈를 먼저 만드는 이유:
-
-- 작업 단위를 분리하기 쉽고
-- 브랜치, 커밋, PR을 이슈와 연결할 수 있고
-- 누가 무슨 작업을 하는지 명확해지기 때문입니다.
 
 ---
 
@@ -62,12 +54,6 @@ git checkout -b feat/SCRUM-12-quiz-generator
 ### 3. 해당 브랜치에서만 작업한다
 
 **한 기능 = 한 브랜치 = 한 PR** 원칙을 지킵니다.
-
-한 브랜치에 여러 기능을 작업하면:
-
-- 리뷰가 어려워지고
-- 충돌이 늘고
-- 문제 발생 시 되돌리기 어려워집니다.
 
 ---
 
@@ -124,7 +110,6 @@ Closes #SCRUM-12
 
 ### 8. 머지 전 develop 최신화
 
-내가 작업하는 동안 다른 팀원이 develop에 머지했을 수 있습니다.
 충돌을 미리 해결한 뒤 머지합니다.
 
 ```bash
@@ -151,7 +136,7 @@ git merge develop
 ```bash
 git checkout develop
 git pull origin develop
-git branch -d feat/SCRUM-12-quiz-generator
+git branch -d feat/SCRUM-12-quiz-generator # 삭제합시다
 ```
 
 ---
