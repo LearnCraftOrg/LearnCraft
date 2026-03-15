@@ -29,6 +29,7 @@ for key, default in [
     ("quiz_data", []),
     ("quiz_selected_dates", []),
     ("quiz_user_query", ""),
+    ("quiz_difficulty", "medium"),
     ("quiz_idx", 0),
     ("quiz_answers", {}),
     ("quiz_checked", {}),
@@ -65,6 +66,15 @@ def render_selection_view():
 
     st.divider()
 
+    difficulty = st.radio(
+        "난이도",
+        options=["easy", "medium", "hard"],
+        format_func=lambda x: {"easy": "🟢 쉬움", "medium": "🟡 보통", "hard": "🔴 어려움"}[x],
+        index=1,
+        horizontal=True,
+        key="difficulty_radio",
+    )
+
     user_query = st.text_area(
         label="문제 생성 범위 (선택사항)",
         placeholder="문제 생성 주제를 입력하세요\n예) 특정 기간 내 범위에 대한 문제를 생성해줘",
@@ -77,6 +87,7 @@ def render_selection_view():
     if st.button("🎲 문제 생성", type="primary", disabled=not can_submit):
         st.session_state["quiz_selected_dates"] = selected_dates
         st.session_state["quiz_user_query"] = user_query.strip()
+        st.session_state["quiz_difficulty"] = difficulty
         st.session_state["view"] = "loading"
         st.rerun()
 
@@ -102,6 +113,7 @@ def render_loading_view():
 
     dates = st.session_state["quiz_selected_dates"]
     query = st.session_state["quiz_user_query"]
+    difficulty = st.session_state["quiz_difficulty"]
     has_text = bool(query)
     is_single = len(dates) == 1 and not has_text
 
@@ -116,9 +128,9 @@ def render_loading_view():
 
             st.write("🤖 GPT-4o mini로 문제 생성 중...")
             if is_single:
-                result = generate_quiz_from_context(ctx)
+                result = generate_quiz_from_context(ctx, difficulty=difficulty)
             else:
-                result = generate_quiz_multi_from_context(ctx, query if has_text else None)
+                result = generate_quiz_multi_from_context(ctx, query if has_text else None, difficulty=difficulty)
 
             status.update(label="✅ 퀴즈 준비 완료!", state="complete")
         except Exception as e:
