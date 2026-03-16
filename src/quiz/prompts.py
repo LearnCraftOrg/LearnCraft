@@ -38,6 +38,8 @@ QUIZ_SYSTEM_PROMPT = """당신은 KDT 백엔드 부트캠프 강의 복습 퀴�
 - 강의 원문에 없는 내용으로 문제 생성 금지
 - <thinking> 내용을 JSON에 포함 금지
 - ```json 블록 외부에 텍스트 출력 금지
+- source_chunk_id는 반드시 강의 텍스트의 [Source N] (chunk_id: ...) 에서 가져온 값이어야 함
+- distractor_types의 값은 반드시 오개념형 / 유사개념 혼동형 / 부분정답형 / 역전형 중 하나여야 함
 """
 
 # ── 난이도별 문항 구성 ─────────────────────────────────────────────────────────
@@ -78,6 +80,13 @@ _QUIZ_REQUEST_TEMPLATE = """## 난이도: {difficulty_label}
   "quizzes": [
     {{
       "type": "multiple_choice",
+      "style": "definition",
+      "source_chunk_id": "강의 텍스트의 chunk_id",
+      "distractor_types": {{
+        "B": "오개념형",
+        "C": "유사개념 혼동형",
+        "D": "부분정답형"
+      }},
       "question": "문제 내용",
       "options": {{
         "A": "선택지 A",
@@ -90,6 +99,8 @@ _QUIZ_REQUEST_TEMPLATE = """## 난이도: {difficulty_label}
     }},
     {{
       "type": "short_answer",
+      "style": "comparison",
+      "source_chunk_id": "강의 텍스트의 chunk_id",
       "question": "문제 내용",
       "answer": "정답",
       "explanation": "✅ 정답 근거: ... | 📌 핵심 포인트: ..."
