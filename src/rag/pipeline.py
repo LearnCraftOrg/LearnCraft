@@ -30,8 +30,9 @@ def build_context_by_date(date: str) -> dict:
         retrieval_sources.append({
             "index": i,
             "chunk_id": doc["chunk_id"],
-            "content": doc["content"], 
-            "metadata": doc["metadata"]
+            "content": doc["content"],
+            "lecture_date": doc["metadata"].get("date", ""),
+            "metadata": {k: v for k, v in doc["metadata"].items() if k != "date"}
         })
 
     return {
@@ -77,8 +78,9 @@ def build_context_by_query(dates: list[str], user_query: str | None = None) -> d
         retrieval_sources.append({
             "index": i,
             "chunk_id": doc["chunk_id"],
-            "content": doc["content"], 
-            "metadata": doc["metadata"]
+            "content": doc["content"],
+            "lecture_date": doc["metadata"].get("date", ""),
+            "metadata": {k: v for k, v in doc["metadata"].items() if k != "date"}
         })
 
     return {
