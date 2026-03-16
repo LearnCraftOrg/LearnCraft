@@ -6,6 +6,7 @@ ROOT = Path(__file__).parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+import re
 import time
 
 import streamlit as st
@@ -17,7 +18,7 @@ st.set_page_config(
 )
 
 # 앱 시작 시 미인덱싱 강의 자동 처리
-from src.ingestion.loader import get_available_dates, load_script, extract_stt_metadata
+from src.ingestion.loader import get_available_dates, load_script, load_lecture_topics
 from src.ingestion.chunker import chunk_text
 from src.vectorstore.store import add_documents, get_indexed_dates
 
@@ -32,7 +33,12 @@ if unindexed:
             t0 = time.perf_counter()
             text = load_script(date)
             if text:
-                meta = extract_stt_metadata(date)
+                headings = re.findall(r'^## (.+)', text, re.MULTILINE)
+                meta = {
+                    "subject": "",
+                    "content": load_lecture_topics(date),
+                    "learning_goal": " / ".join(headings),
+                }
                 print(f"[TIMING] {date} load+meta: {time.perf_counter()-t0:.2f}s")
 
                 t1 = time.perf_counter()

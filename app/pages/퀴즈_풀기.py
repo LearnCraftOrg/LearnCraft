@@ -12,7 +12,7 @@ import pandas as pd
 import streamlit as st
 
 from src.vectorstore.store import get_indexed_dates
-from src.ingestion.loader import extract_stt_metadata
+from src.ingestion.loader import load_lecture_topics
 from src.rag.pipeline import build_context_by_date, build_context_by_query
 from src.quiz.generator import generate_quiz_from_context, generate_quiz_multi_from_context
 
@@ -46,8 +46,7 @@ def render_selection_view():
 
     rows = []
     for date in indexed_dates:
-        meta = extract_stt_metadata(date)
-        topic = meta["content"][:60] if meta.get("content") else date
+        topic = load_lecture_topics(date) or date
         rows.append({"선택": False, "날짜": date, "주제": topic})
 
     df = pd.DataFrame(rows)
