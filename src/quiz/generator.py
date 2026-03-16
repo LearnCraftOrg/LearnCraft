@@ -1,6 +1,8 @@
 """GPT-4o를 사용한 퀴즈 생성 엔진."""
 import json
 import re
+import os
+from pathlib import Path
 from uuid import uuid4
 from datetime import datetime, timezone
 from typing import Literal, Optional
@@ -36,7 +38,6 @@ class QuizOptions(BaseModel):
     B: str
     C: str
     D: str
-
 
 class QuizItem(BaseModel):
     type: Literal["multiple_choice", "short_answer"]
@@ -80,6 +81,7 @@ def _extract_json(text: str) -> str:
 
     raise ValueError("LLM 응답에서 JSON 블록을 찾을 수 없습니다.")
 
+# chunk_id 검증 로직
 def _validate_chunk_ids(result: dict, retrieval_sources: list[dict]) -> dict:
     """LLM이 선언한 source_chunk_id가 실제 retrieval_sources에 있는지 검증."""
     valid_ids = {s["chunk_id"] for s in retrieval_sources}
@@ -91,6 +93,16 @@ def _validate_chunk_ids(result: dict, retrieval_sources: list[dict]) -> dict:
         else:
             quiz["chunk_id_valid"] = True
     return result
+
+def _save_quiz_log(record: dict):
+    """생성된 퀴즈 세트를 JSON 파일로 저장."""
+    from config.settings import GENERATED_QUIZ_DIR
+    os.makedirs(GENERATED_QUIZ_DIR, exist_ok=True)
+    
+    quiz_set_id = record["quiz_set_id"]
+    file_path = Path(GENERATED_QUIZ_DIR) / f"quiz_{quiz_set_id}.json"
+    with open(file_path, "w", encoding="utf-8") as f:
+        json.dump(record, f, indent=2, ensure_ascii=False)
 
 def _call_and_validate(messages: list[dict], max_retries: int = 2) -> dict:
     """LLM 호출 → JSON 추출 → Pydantic 검증 → dict 반환. 실패 시 1회 재시도."""
@@ -147,9 +159,13 @@ def generate_quiz_from_context(
         {"role": "user", "content": user_prompt},
     ])
 
+    # 각 문항에 고유 ID 부여
+    for quiz in result["quizzes"]:
+        quiz["quiz_id"] = str(uuid4())
+
     result = _validate_chunk_ids(result, ctx["retrieval_sources"])
 
-    return {
+    record = {
         "quiz_set_id": str(uuid4()),
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "lecture_date": date,
@@ -157,6 +173,9 @@ def generate_quiz_from_context(
         "retrieval_sources": ctx["retrieval_sources"],
         **result,
     }
+    
+    _save_quiz_log(record)
+    return record
 
 
 def generate_quiz_multi_from_context(
@@ -178,15 +197,23 @@ def generate_quiz_multi_from_context(
         {"role": "system", "content": QUIZ_SYSTEM_PROMPT},
         {"role": "user", "content": user_prompt},
     ])
+    
+    # 각 문항에 고유 ID 부여
+    for quiz in result["quizzes"]:
+        quiz["quiz_id"] = str(uuid4())
+        
     result = _validate_chunk_ids(result, ctx["retrieval_sources"])
 
-    return {
+    record = {
         "quiz_set_id": str(uuid4()),
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "difficulty": difficulty,
         "retrieval_sources": ctx["retrieval_sources"],
         **result,
     }
+    
+    _save_quiz_log(record)
+    return record
 
 
 
