@@ -1,7 +1,9 @@
 """GPT-4o를 사용한 퀴즈 생성 엔진."""
 import json
 import re
-from typing import Literal
+from uuid import uuid4
+from datetime import datetime, timezone
+from typing import Literal, Optional
 
 from openai import OpenAI
 from pydantic import BaseModel, ValidationError, model_validator
@@ -38,6 +40,10 @@ class QuizOptions(BaseModel):
 
 class QuizItem(BaseModel):
     type: Literal["multiple_choice", "short_answer"]
+    style: Literal["definition", "comparison", "code", "prediction", "application"]
+    source_chunk_id: str | None = None
+    chunk_id_valid: bool = False
+    distractor_types: dict | None = None
     question: str
     options: QuizOptions | None = None
     answer: str
@@ -74,6 +80,17 @@ def _extract_json(text: str) -> str:
 
     raise ValueError("LLM 응답에서 JSON 블록을 찾을 수 없습니다.")
 
+def _validate_chunk_ids(result: dict, retrieval_sources: list[dict]) -> dict:
+    """LLM이 선언한 source_chunk_id가 실제 retrieval_sources에 있는지 검증."""
+    valid_ids = {s["chunk_id"] for s in retrieval_sources}
+    for quiz in result["quizzes"]:
+        chunk_id = quiz.get("source_chunk_id")
+        if not chunk_id or chunk_id not in valid_ids:
+            quiz["source_chunk_id"] = None
+            quiz["chunk_id_valid"] = False
+        else:
+            quiz["chunk_id_valid"] = True
+    return result
 
 def _call_and_validate(messages: list[dict], max_retries: int = 2) -> dict:
     """LLM 호출 → JSON 추출 → Pydantic 검증 → dict 반환. 실패 시 1회 재시도."""
@@ -125,10 +142,21 @@ def generate_quiz_from_context(
         lecture_context=ctx["lecture_context"],
         quiz_request=get_quiz_request(difficulty),
     )
-    return _call_and_validate([
+    result = _call_and_validate([
         {"role": "system", "content": QUIZ_SYSTEM_PROMPT},
         {"role": "user", "content": user_prompt},
     ])
+
+    result = _validate_chunk_ids(result, ctx["retrieval_sources"])
+
+    return {
+        "quiz_set_id": str(uuid4()),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "lecture_date": date,
+        "difficulty": difficulty,
+        "retrieval_sources": ctx["retrieval_sources"],
+        **result,
+    }
 
 
 def generate_quiz_multi_from_context(
@@ -146,10 +174,20 @@ def generate_quiz_multi_from_context(
         lecture_context=ctx["lecture_context"],
         quiz_request=get_quiz_request(difficulty),
     )
-    return _call_and_validate([
+    result = _call_and_validate([
         {"role": "system", "content": QUIZ_SYSTEM_PROMPT},
         {"role": "user", "content": user_prompt},
     ])
+    result = _validate_chunk_ids(result, ctx["retrieval_sources"])
+
+    return {
+        "quiz_set_id": str(uuid4()),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "difficulty": difficulty,
+        "retrieval_sources": ctx["retrieval_sources"],
+        **result,
+    }
+
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
