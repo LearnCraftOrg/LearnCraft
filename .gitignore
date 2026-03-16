@@ -13,3 +13,4 @@ data/
 
 # Test
 app/tests/
+.claude/
