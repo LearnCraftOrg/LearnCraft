@@ -6,6 +6,8 @@ ROOT = Path(__file__).parent.parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+import time
+
 import streamlit as st
 
 from src.vectorstore.store import get_indexed_dates
@@ -45,7 +47,9 @@ with st.expander("📋 강의 정보", expanded=True):
 if st.button("📝 학습 가이드 생성", type="primary"):
     with st.spinner("GPT-4o가 학습 가이드를 생성 중입니다..."):
         try:
+            t0 = time.perf_counter()
             guide = generate_guide(selected_date)
+            print(f"[TIMING] generate_guide: {time.perf_counter()-t0:.2f}s")
             st.session_state["guide_data"] = guide
             st.session_state["guide_date"] = selected_date
         except Exception as e:

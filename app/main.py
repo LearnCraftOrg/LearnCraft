@@ -6,6 +6,8 @@ ROOT = Path(__file__).parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+import time
+
 import streamlit as st
 
 st.set_page_config(
@@ -24,13 +26,23 @@ indexed_dates = get_indexed_dates()
 unindexed = [d for d in available_dates if d not in indexed_dates]
 
 if unindexed:
+    t_total = time.perf_counter()
     with st.spinner(f"강의 {len(unindexed)}개 자동 인덱싱 중..."):
         for date in unindexed:
+            t0 = time.perf_counter()
             text = load_script(date)
             if text:
                 meta = extract_stt_metadata(date)
+                print(f"[TIMING] {date} load+meta: {time.perf_counter()-t0:.2f}s")
+
+                t1 = time.perf_counter()
                 docs = chunk_text(text, {"date": date, **meta})
+                print(f"[TIMING] {date} chunk: {time.perf_counter()-t1:.2f}s")
+
+                t2 = time.perf_counter()
                 add_documents(docs)
+                print(f"[TIMING] {date} add_documents: {time.perf_counter()-t2:.2f}s")
+    print(f"[TIMING] 전체 인덱싱: {time.perf_counter()-t_total:.2f}s")
 
 st.title("📚 LearnCraft")
 st.subheader("강의 내용 기반 복습 퀴즈 & 학습 가이드 자동 생성")

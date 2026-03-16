@@ -6,6 +6,8 @@ ROOT = Path(__file__).parent.parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+import time
+
 import pandas as pd
 import streamlit as st
 
@@ -120,17 +122,21 @@ def render_loading_view():
     with st.status("퀴즈 준비 중...", expanded=True) as status:
         try:
             st.write("📄 문서 불러오는 중...")
+            t0 = time.perf_counter()
             if is_single:
                 ctx = build_context_by_date(dates[0])
             else:
                 ctx = build_context_by_query(dates, query if has_text else None)
+            print(f"[TIMING] build_context: {time.perf_counter()-t0:.2f}s")
             st.write("✅ 문서 불러오기 완료")
 
             st.write("🤖 GPT-4o mini로 문제 생성 중...")
+            t1 = time.perf_counter()
             if is_single:
                 result = generate_quiz_from_context(ctx, difficulty=difficulty)
             else:
                 result = generate_quiz_multi_from_context(ctx, query if has_text else None, difficulty=difficulty)
+            print(f"[TIMING] generate_quiz: {time.perf_counter()-t1:.2f}s")
 
             status.update(label="✅ 퀴즈 준비 완료!", state="complete")
         except Exception as e:
