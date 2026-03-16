@@ -1,11 +1,11 @@
 """강의 RAG 컨텍스트 구성 파이프라인."""
-from src.ingestion.loader import load_curriculum
-from src.rag.retriever import retrieve_by_query
+from src.vectorstore.store import get_stt_curriculum
+from src.rag.retriever import retrieve_by_date, retrieve_by_query
 
 
 def build_context_by_date(date: str) -> dict:
     """
-    단일 날짜 기반 컨텍스트 구성. 커리큘럼 학습목표로 semantic search하여 관련 섹션 반환.
+    단일 날짜 기반 컨텍스트 구성. 날짜 메타데이터 필터로 관련 섹션 반환 (embedding 없음).
 
     Returns:
         {
@@ -14,11 +14,9 @@ def build_context_by_date(date: str) -> dict:
             "lecture_context": str,
         }
     """
-    curriculum_map = load_curriculum()
-    curriculum = curriculum_map.get(date, {})
-    query = curriculum.get("learning_goal", "") or curriculum.get("content", date)
-    lecture_context = retrieve_by_query(query, dates=[date])
-
+    curriculum = get_stt_curriculum(date)
+    lecture_context = retrieve_by_date(date)
+    print(f"[LOG] build_context_by_date({date}): retrieve_by_date (no embedding)")
     return {
         "date": date,
         "curriculum": curriculum,
@@ -37,20 +35,21 @@ def build_context_by_query(dates: list[str], user_query: str | None = None) -> d
     Returns:
         {dates, curriculum_summary, lecture_context, query}
     """
-    curriculum_map = load_curriculum()
+    curriculum_map = {d: get_stt_curriculum(d) for d in dates}
     curriculum_summary = "\n".join(
-        f"{d}: {curriculum_map.get(d, {}).get('subject', '')} - {curriculum_map.get(d, {}).get('content', '')}"
+        f"{d}: {curriculum_map[d].get('subject', '')} - {curriculum_map[d].get('content', '')}"
         for d in dates
     )
     if user_query and user_query.strip():
         query = user_query.strip()
     elif dates:
-        first = curriculum_map.get(dates[0], {})
+        first = curriculum_map[dates[0]]
         query = first.get("learning_goal", "") or first.get("content", dates[0])
     else:
         query = user_query or ""
 
     lecture_context = retrieve_by_query(query, dates or None)
+    print(f"[LOG] build_context_by_query(dates={dates}): retrieve_by_query('{query[:40]}')")
     return {
         "dates": dates,
         "curriculum_summary": curriculum_summary,

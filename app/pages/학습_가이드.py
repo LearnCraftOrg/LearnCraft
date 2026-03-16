@@ -10,35 +10,27 @@ import time
 
 import streamlit as st
 
-from src.vectorstore.store import get_indexed_dates
-from src.ingestion.loader import load_curriculum
+from src.vectorstore.store import get_indexed_dates, get_stt_curriculum
 from src.guide.summarizer import generate_guide
 
 st.set_page_config(page_title="학습 가이드", page_icon="📖", layout="wide")
 st.title("📖 학습 가이드")
 
 indexed_dates = get_indexed_dates()
-curriculum_map = load_curriculum()
 
 if not indexed_dates:
     st.warning("인덱싱된 강의가 없습니다. **강의 인덱싱** 페이지에서 먼저 인덱싱하세요.")
     st.stop()
 
 # 날짜 선택
-date_labels = {
-    d: f"{d} | {curriculum_map.get(d, {}).get('subject', '')} - {curriculum_map.get(d, {}).get('content', '')[:30]}"
-    for d in indexed_dates
-}
-selected_label = st.selectbox("강의 날짜 선택", options=list(date_labels.values()))
-selected_date = [d for d, l in date_labels.items() if l == selected_label][0]
+selected_date = st.selectbox("강의 날짜 선택", options=indexed_dates)
 
-info = curriculum_map.get(selected_date, {})
+info = get_stt_curriculum(selected_date)
 
-# 커리큘럼 정보
+# 강의 정보
 with st.expander("📋 강의 정보", expanded=True):
     col1, col2 = st.columns(2)
-    col1.metric("주차", f"{info.get('week', '-')}주차")
-    col1.markdown(f"**과목:** {info.get('subject', '-')}")
+    col1.markdown(f"**주제:** {info.get('subject', '-')}")
     col1.markdown(f"**내용:** {info.get('content', '-')}")
     col2.markdown(f"**학습 목표:**")
     col2.info(info.get("learning_goal", "-"))
