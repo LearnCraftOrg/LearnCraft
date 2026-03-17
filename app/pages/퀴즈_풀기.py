@@ -15,6 +15,7 @@ from src.vectorstore.store import get_indexed_dates
 from src.ingestion.loader import load_lecture_topics
 from src.rag.pipeline import build_context_by_date, build_context_by_query
 from src.quiz.generator import generate_quiz_from_context, generate_quiz_multi_from_context
+from src.quiz.scoring import evaluate_short_answer
 
 st.set_page_config(page_title="퀴즈 풀기", page_icon="📝", layout="wide")
 st.title("📝 복습 퀴즈")
@@ -35,6 +36,7 @@ for key, default in [
     ("quiz_idx", 0),
     ("quiz_answers", {}),
     ("quiz_checked", {}),
+    ("quiz_eval_results", {}),
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
@@ -215,6 +217,15 @@ def render_quiz_view():
     if not is_checked:
         if st.button("확인", disabled=not has_answer):
             st.session_state["quiz_checked"][idx] = True
+            if q["type"] == "short_answer":
+                with st.spinner("답안 평가 중..."):
+                    result = evaluate_short_answer(
+                        question=q["question"],
+                        correct_answer=q["answer"],
+                        user_answer=typed,
+                        explanation=q["explanation"],
+                    )
+                st.session_state["quiz_eval_results"][idx] = result
             st.rerun()
     else:
         user_ans = st.session_state["quiz_answers"].get(idx, "")
@@ -222,7 +233,7 @@ def render_quiz_view():
         if q["type"] == "multiple_choice":
             is_correct = bool(user_ans and user_ans.startswith(correct_ans))
         else:
-            is_correct = bool(user_ans.strip() and correct_ans.lower() in user_ans.lower())
+            is_correct = st.session_state["quiz_eval_results"].get(idx, False)
 
         if is_correct:
             st.success(f"✅ 정답! | 해설: {q['explanation']}")
@@ -254,7 +265,7 @@ def render_quiz_view():
                 if ans and ans.startswith(q_item["answer"]):
                     correct_count += 1
             else:
-                if ans.strip() and q_item["answer"].lower() in ans.lower():
+                if st.session_state["quiz_eval_results"].get(i, False):
                     correct_count += 1
 
         score_pct = int(correct_count / total * 100)
@@ -273,6 +284,7 @@ def render_quiz_view():
                 st.session_state["quiz_idx"] = 0
                 st.session_state["quiz_answers"] = {}
                 st.session_state["quiz_checked"] = {}
+                st.session_state["quiz_eval_results"] = {}
                 st.rerun()
         with col_new:
             if st.button("✏️ 새 문제 생성", use_container_width=True):
@@ -281,6 +293,7 @@ def render_quiz_view():
                 st.session_state["quiz_idx"] = 0
                 st.session_state["quiz_answers"] = {}
                 st.session_state["quiz_checked"] = {}
+                st.session_state["quiz_eval_results"] = {}
                 st.rerun()
 
 

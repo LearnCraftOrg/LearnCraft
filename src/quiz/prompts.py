@@ -40,74 +40,6 @@ QUIZ_SYSTEM_PROMPT = """당신은 부트캠프 강의 복습 퀴즈 출제 전�
 - ```json 블록 외부에 텍스트 출력 금지
 """
 
-# ── 난이도별 문항 구성 ─────────────────────────────────────────────────────────
-
-_DIFFICULTY_CONFIG = {
-    "easy": {
-        "label": "쉬움",
-        "distribution": "| 정의형 (definition)     | 4 |\n| 비교형 (comparison)     | 2 |\n| 코드이해형 (code)       | 2 |\n| 결과예측형 (prediction) | 1 |\n| 개념적용형 (application)| 1 |",
-        "instruction": "강의 원문에 직접 나오는 표현과 설명을 기반으로 출제하세요. 개념의 정확한 이해를 확인하는 기본적인 문제 위주로 구성하세요.",
-    },
-    "medium": {
-        "label": "보통",
-        "distribution": "| 정의형 (definition)     | 2 |\n| 비교형 (comparison)     | 2 |\n| 코드이해형 (code)       | 3 |\n| 결과예측형 (prediction) | 2 |\n| 개념적용형 (application)| 1 |",
-        "instruction": "개념 이해와 코드 적용 능력을 균형 있게 평가하세요. 단순 암기보다는 개념 간의 관계와 적용 방식을 묻는 문제를 포함하세요.",
-    },
-    "hard": {
-        "label": "어려움",
-        "distribution": "| 정의형 (definition)     | 1 |\n| 비교형 (comparison)     | 1 |\n| 코드이해형 (code)       | 3 |\n| 결과예측형 (prediction) | 2 |\n| 개념적용형 (application)| 3 |",
-        "instruction": "여러 개념을 연결하는 통합형 문제 위주로 구성하세요. 코드 문제는 실제 에러 상황, 엣지 케이스, 최적화 판단이 필요한 수준으로 출제하세요. 단순 정의 암기 문제는 최소화하세요.",
-    },
-}
-
-# 두 user prompt가 공유하는 문항 요청 블록
-_QUIZ_REQUEST_TEMPLATE = """## 난이도: {difficulty_label}
-{difficulty_instruction}
-
-## 문항 구성 (반드시 이 분포로 10문항 생성)
-| 유형 | 개수 |
-|------|------|
-{distribution}
-
-- 객관식(multiple_choice): 7문항, 선택지 4개 (A/B/C/D)
-- 주관식(short_answer): 3문항
-
-반드시 아래 JSON 구조로만 응답하세요:
-```json
-{{
-  "quizzes": [
-    {{
-      "type": "multiple_choice",
-      "question": "문제 내용",
-      "options": {{
-        "A": "선택지 A",
-        "B": "선택지 B",
-        "C": "선택지 C",
-        "D": "선택지 D"
-      }},
-      "answer": "A",
-      "explanation": "✅ 정답 근거: ... | ❌ 오답 함정: ..."
-    }},
-    {{
-      "type": "short_answer",
-      "question": "문제 내용",
-      "answer": "정답",
-      "explanation": "✅ 정답 근거: ... | 📌 핵심 포인트: ..."
-    }}
-  ]
-}}
-```"""
-
-
-def get_quiz_request(difficulty: str = "medium") -> str:
-    """난이도에 맞는 문항 요청 블록 반환."""
-    cfg = _DIFFICULTY_CONFIG.get(difficulty, _DIFFICULTY_CONFIG["medium"])
-    return _QUIZ_REQUEST_TEMPLATE.format(
-        difficulty_label=cfg["label"],
-        difficulty_instruction=cfg["instruction"],
-        distribution=cfg["distribution"],
-    )
-
 
 QUIZ_USER_PROMPT = """아래 강의 내용을 바탕으로 복습 퀴즈를 생성하세요.
 
@@ -134,6 +66,18 @@ QUIZ_MULTI_USER_PROMPT = """아래 강의 내용을 바탕으로 복습 퀴즈�
 
 {quiz_request}"""
 
+
+# ── Short Answer Scoring ──────────────────────────────────────────────────────
+
+SCORING_SYSTEM_PROMPT = """\
+당신은 학생의 서술형 답안을 채점하는 교육 평가자입니다.
+주어진 문제, 모범 답안, 해설을 참고하여 학생 답안의 정오를 판단하세요.
+
+규칙:
+- 표현이 달라도 핵심 개념이 맞으면 정답으로 처리합니다.
+- 부분적으로만 맞거나 핵심을 빠뜨린 경우는 오답으로 처리합니다.
+- 반드시 JSON 형식으로만 응답하세요: {"correct": true} 또는 {"correct": false}
+"""
 
 # ── Guide Generation ──────────────────────────────────────────────────────────
 
