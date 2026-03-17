@@ -54,24 +54,24 @@ def load_lecture_topics(date: str) -> str:
 
 
 
-def load_curriculum() -> dict[str, dict]:
-    """
-    커리큘럼 CSV 로드 → {date: {week, subject, content, learning_goal, sessions}} 형태로 반환.
-    날짜 하나에 오전/오후 여러 row가 있으면 통합.
-    """
-    df = pd.read_csv(CURRICULUM_PATH, encoding="utf-8")
-    df["date"] = df["date"].astype(str).str.strip()
+# def load_curriculum() -> dict[str, dict]:
+#     """
+#     커리큘럼 CSV 로드 → {date: {week, subject, content, learning_goal, sessions}} 형태로 반환.
+#     날짜 하나에 오전/오후 여러 row가 있으면 통합.
+#     """
+#     df = pd.read_csv(CURRICULUM_PATH, encoding="utf-8")
+#     df["date"] = df["date"].astype(str).str.strip()
 
-    result: dict[str, dict] = {}
-    for date, group in df.groupby("date"):
-        row = group.iloc[0]
-        contents = group["content"].dropna().unique().tolist()
-        goals = group["learning_goal"].dropna().unique().tolist()
-        result[date] = {
-            "week": int(row["week"]),
-            "subject": row["subject"],
-            "content": " / ".join(contents),
-            "learning_goal": " / ".join(goals),
-            "sessions": group["session"].tolist(),
-        }
-    return result
+#     result: dict[str, dict] = {}
+#     for date, group in df.groupby("date"):
+#         row = group.iloc[0]
+#         contents = group["content"].dropna().unique().tolist()
+#         goals = group["learning_goal"].dropna().unique().tolist()
+#         result[date] = {
+#             "week": int(row["week"]),
+#             "subject": row["subject"],
+#             "content": " / ".join(contents),
+#             "learning_goal": " / ".join(goals),
+#             "sessions": group["session"].tolist(),
+#         }
+#     return result
