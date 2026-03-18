@@ -144,6 +144,8 @@ def generate_quiz_from_context(
     ctx: dict, difficulty: DifficultyLevel = "medium"
 ) -> dict:
     """build_context_by_date() 결과를 받아 LLM 호출만 수행."""
+    if not ctx.get("lecture_context", "").strip():
+        raise ValueError(f"{ctx.get('date', '알 수 없는 날짜')}의 강의 데이터를 찾을 수 없습니다.")
     curriculum = ctx["curriculum"]
     date = ctx["date"]
     user_prompt = QUIZ_USER_PROMPT.format(
@@ -191,6 +193,8 @@ def generate_quiz_multi_from_context(
     difficulty: DifficultyLevel = "medium",
 ) -> dict:
     """build_context_by_query() 결과를 받아 LLM 호출만 수행."""
+    if not ctx.get("lecture_context", "").strip():
+        raise ValueError("검색 조건에 해당하는 강의 데이터를 찾을 수 없습니다.")
     user_query_section = ""
     if user_query and user_query.strip():
         user_query_section = f"## 문제 생성 요청\n{user_query.strip()}\n"
