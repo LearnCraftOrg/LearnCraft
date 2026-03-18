@@ -1,7 +1,11 @@
 """GPT-4o를 사용한 퀴즈 생성 엔진."""
 import json
 import re
-from typing import Literal
+import os
+from pathlib import Path
+from uuid import uuid4
+from datetime import datetime, timezone
+from typing import Literal, Optional
 
 from openai import OpenAI
 from pydantic import BaseModel, ValidationError, model_validator
@@ -35,9 +39,11 @@ class QuizOptions(BaseModel):
     C: str
     D: str
 
-
 class QuizItem(BaseModel):
     type: Literal["multiple_choice", "short_answer"]
+    style: Literal["definition", "comparison", "code", "prediction", "application"]
+    source_indices: list[int] = []
+    chunk_id_valid: bool = False
     question: str
     options: QuizOptions | None = None
     answer: str
@@ -74,6 +80,28 @@ def _extract_json(text: str) -> str:
 
     raise ValueError("LLM 응답에서 JSON 블록을 찾을 수 없습니다.")
 
+# chunk_id 검증 로직
+def _validate_chunk_ids(result: dict, retrieval_sources: list[dict]) -> dict:
+    for quiz in result["quizzes"]:
+        indices = quiz.get("source_indices", [])
+        chunk_ids = []
+        for idx in indices:
+            if 1 <= idx <= len(retrieval_sources):
+                chunk_ids.append(retrieval_sources[idx - 1]["chunk_id"])
+        quiz["source_chunk_ids"] = chunk_ids
+        quiz["chunk_id_valid"] = len(chunk_ids) > 0
+    return result
+
+def _save_quiz_log(record: dict) -> Path:
+    """생성된 퀴즈 세트를 JSON 파일로 저장."""
+    from config.settings import GENERATED_QUIZ_DIR
+    os.makedirs(GENERATED_QUIZ_DIR, exist_ok=True)
+    
+    quiz_set_id = record["quiz_set_id"]
+    file_path = Path(GENERATED_QUIZ_DIR) / f"quiz_{quiz_set_id}.json"
+    with open(file_path, "w", encoding="utf-8") as f:
+        json.dump(record, f, indent=2, ensure_ascii=False)
+    return file_path
 
 def _call_and_validate(messages: list[dict], max_retries: int = 2) -> dict:
     """LLM 호출 → JSON 추출 → Pydantic 검증 → dict 반환. 실패 시 1회 재시도."""
@@ -84,6 +112,7 @@ def _call_and_validate(messages: list[dict], max_retries: int = 2) -> dict:
             model=LLM_MODEL,
             messages=current_messages,
             temperature=0.7,
+            max_tokens=4096,
         )
         last_raw = response.choices[0].message.content
         try:
@@ -127,10 +156,35 @@ def generate_quiz_from_context(
         lecture_context=ctx["lecture_context"],
         quiz_request=get_quiz_request(difficulty),
     )
-    return _call_and_validate([
+    result = _call_and_validate([
         {"role": "system", "content": QUIZ_SYSTEM_PROMPT},
         {"role": "user", "content": user_prompt},
     ])
+
+    # 각 문항에 고유 ID 부여
+    for quiz in result["quizzes"]:
+        quiz["quiz_id"] = str(uuid4())
+
+    result = _validate_chunk_ids(result, ctx["retrieval_sources"])
+
+    record = {
+        "quiz_set_id": str(uuid4()),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "lecture_date": date,
+        "difficulty": difficulty,
+        "retrieval_sources": ctx["retrieval_sources"],
+        **result,
+    }
+    
+    log_path = _save_quiz_log(record)
+    
+    # 자동 품질 평가 실행 (리포트 생성 포함)
+    try:
+        from src.quiz.evaluator.runner import run_evaluation_from_file
+        run_evaluation_from_file(str(log_path))
+    except Exception as e:
+        print(f"⚠️ 자동 평가 실패: {e}")
+    return record
 
 
 def generate_quiz_multi_from_context(
@@ -150,10 +204,35 @@ def generate_quiz_multi_from_context(
         lecture_context=ctx["lecture_context"],
         quiz_request=get_quiz_request(difficulty),
     )
-    return _call_and_validate([
+    result = _call_and_validate([
         {"role": "system", "content": QUIZ_SYSTEM_PROMPT},
         {"role": "user", "content": user_prompt},
     ])
+    
+    # 각 문항에 고유 ID 부여
+    for quiz in result["quizzes"]:
+        quiz["quiz_id"] = str(uuid4())
+        
+    result = _validate_chunk_ids(result, ctx["retrieval_sources"])
+
+    record = {
+        "quiz_set_id": str(uuid4()),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "difficulty": difficulty,
+        "retrieval_sources": ctx["retrieval_sources"],
+        **result,
+    }
+    
+    log_path = _save_quiz_log(record)
+    
+    # 자동 품질 평가 실행 (리포트 생성 포함)
+    try:
+        from src.quiz.evaluator.runner import run_evaluation_from_file
+        run_evaluation_from_file(str(log_path))
+    except Exception as e:
+        print(f"⚠️ 자동 평가 실패: {e}")
+    return record
+
 
 
 # ── Public API ────────────────────────────────────────────────────────────────

@@ -38,6 +38,10 @@ QUIZ_SYSTEM_PROMPT = """당신은 부트캠프 강의 복습 퀴즈 출제 전�
 - 강의 원문에 없는 내용으로 문제 생성 금지
 - <thinking> 내용을 JSON에 포함 금지
 - ```json 블록 외부에 텍스트 출력 금지
+- source_indices는 참고한 강의 텍스트의 [Source N]에서 N 숫자 목록이다.
+  예) Source 1만 참고했으면 [1], Source 1과 3을 참고했으면 [1, 3]
+- 문항의 내용(질문, 정답, 해설)은 반드시 해당 source_indices에 명시된 텍스트만으로 구성해야 함. 다른 청크에 있는 정보나 상식으로 내용을 보충하지 마세요. 이는 Grounding 평가의 핵심 기준입니다.
+- 정답이 항상 B가 되지 않도록 A/B/C/D를 고르게 분산할 것
 """
 
 # ── 난이도별 문항 구성 ─────────────────────────────────────────────────────────
@@ -78,6 +82,8 @@ _QUIZ_REQUEST_TEMPLATE = """## 난이도: {difficulty_label}
   "quizzes": [
     {{
       "type": "multiple_choice",
+      "style": "definition",
+      "source_indices": [int, int, int],
       "question": "문제 내용",
       "options": {{
         "A": "선택지 A",
@@ -85,11 +91,13 @@ _QUIZ_REQUEST_TEMPLATE = """## 난이도: {difficulty_label}
         "C": "선택지 C",
         "D": "선택지 D"
       }},
-      "answer": "A",
+      "answer": "B",
       "explanation": "✅ 정답 근거: ... | ❌ 오답 함정: ..."
     }},
     {{
       "type": "short_answer",
+      "style": "comparison",
+      "source_indices": [int, int], 
       "question": "문제 내용",
       "answer": "정답",
       "explanation": "✅ 정답 근거: ... | 📌 핵심 포인트: ..."
