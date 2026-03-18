@@ -114,6 +114,18 @@ def render_loading_view():
     <span class="loading-icon">📚</span>
     """, unsafe_allow_html=True)
 
+    # 이미 생성된 결과가 있으면 스킵
+    if st.session_state.get("quiz_result_cache"):
+        result = st.session_state["quiz_result_cache"]
+        st.session_state["quiz_data"] = result.get("quizzes", [])
+        st.session_state["quiz_idx"] = 0
+        st.session_state["quiz_answers"] = {}
+        st.session_state["quiz_checked"] = {}
+        st.session_state["quiz_result_cache"] = None  # 캐시 초기화
+        st.session_state["view"] = "quiz"
+        st.rerun()
+        return
+
     dates = st.session_state["quiz_selected_dates"]
     query = st.session_state["quiz_user_query"]
     difficulty = st.session_state["quiz_difficulty"]
@@ -135,6 +147,8 @@ def render_loading_view():
             t1 = time.perf_counter()
             if is_single:
                 result = generate_quiz_from_context(ctx, difficulty=difficulty)
+                st.session_state["quiz_result_cache"] = result  # 캐시 저장
+                status.update(label="✅ 퀴즈 준비 완료!", state="complete")
             else:
                 result = generate_quiz_multi_from_context(ctx, query if has_text else None, difficulty=difficulty)
             print(f"[TIMING] generate_quiz: {time.perf_counter()-t1:.2f}s")

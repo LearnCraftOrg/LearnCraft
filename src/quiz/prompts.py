@@ -38,7 +38,74 @@ QUIZ_SYSTEM_PROMPT = """당신은 부트캠프 강의 복습 퀴즈 출제 전�
 - 강의 원문에 없는 내용으로 문제 생성 금지
 - <thinking> 내용을 JSON에 포함 금지
 - ```json 블록 외부에 텍스트 출력 금지
+- source_indices는 참고한 강의 텍스트의 [Source N]에서 N 숫자 목록이다.
+  예) Source 1만 참고했으면 [1], Source 1과 3을 참고했으면 [1, 3]
+- 문항의 내용(질문, 정답, 해설)은 반드시 해당 source_indices에 명시된 텍스트만으로 구성해야 함. 다른 청크에 있는 정보나 상식으로 내용을 보충하지 마세요. 이는 Grounding 평가의 핵심 기준입니다.
+- 정답이 항상 B가 되지 않도록 A/B/C/D를 고르게 분산할 것
 """
+
+# ── 난이도별 문항 구성 ─────────────────────────────────────────────────────────
+
+_DIFFICULTY_CONFIG = {
+    "easy": {
+        "label": "쉬움",
+        "distribution": "| 정의형 (definition)     | 4 |\n| 비교형 (comparison)     | 2 |\n| 코드이해형 (code)       | 2 |\n| 결과예측형 (prediction) | 1 |\n| 개념적용형 (application)| 1 |",
+        "instruction": "강의 원문에 직접 나오는 표현과 설명을 기반으로 출제하세요. 개념의 정확한 이해를 확인하는 기본적인 문제 위주로 구성하세요.",
+    },
+    "medium": {
+        "label": "보통",
+        "distribution": "| 정의형 (definition)     | 2 |\n| 비교형 (comparison)     | 2 |\n| 코드이해형 (code)       | 3 |\n| 결과예측형 (prediction) | 2 |\n| 개념적용형 (application)| 1 |",
+        "instruction": "개념 이해와 코드 적용 능력을 균형 있게 평가하세요. 단순 암기보다는 개념 간의 관계와 적용 방식을 묻는 문제를 포함하세요.",
+    },
+    "hard": {
+        "label": "어려움",
+        "distribution": "| 정의형 (definition)     | 1 |\n| 비교형 (comparison)     | 1 |\n| 코드이해형 (code)       | 3 |\n| 결과예측형 (prediction) | 2 |\n| 개념적용형 (application)| 3 |",
+        "instruction": "여러 개념을 연결하는 통합형 문제 위주로 구성하세요. 코드 문제는 실제 에러 상황, 엣지 케이스, 최적화 판단이 필요한 수준으로 출제하세요. 단순 정의 암기 문제는 최소화하세요.",
+    },
+}
+
+# 두 user prompt가 공유하는 문항 요청 블록
+_QUIZ_REQUEST_TEMPLATE = """## 난이도: {difficulty_label}
+{difficulty_instruction}
+
+## 문항 구성 (반드시 이 분포로 10문항 생성)
+| 유형 | 개수 |
+|------|------|
+{distribution}
+
+- 객관식(multiple_choice): 7문항, 선택지 4개 (A/B/C/D)
+- 주관식(short_answer): 3문항
+
+반드시 아래 JSON 구조로만 응답하세요:
+```json
+{{
+  "quizzes": [
+    {{
+      "type": "multiple_choice",
+      "style": "definition",
+      "source_indices": [int, int, int],
+      "question": "문제 내용",
+      "options": {{
+        "A": "선택지 A",
+        "B": "선택지 B",
+        "C": "선택지 C",
+        "D": "선택지 D"
+      }},
+      "answer": "B",
+      "explanation": "✅ 정답 근거: ... | ❌ 오답 함정: ..."
+    }},
+    {{
+      "type": "short_answer",
+      "style": "comparison",
+      "source_indices": [int, int], 
+      "question": "문제 내용",
+      "answer": "정답",
+      "explanation": "✅ 정답 근거: ... | 📌 핵심 포인트: ..."
+    }}
+  ]
+}}
+```"""
+
 
 
 QUIZ_USER_PROMPT = """아래 강의 내용을 바탕으로 복습 퀴즈를 생성하세요.
