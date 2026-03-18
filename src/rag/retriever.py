@@ -4,6 +4,10 @@
 - retrieve_by_date: 날짜 지정 → 해당 날짜의 ## 섹션 전체 반환 (semantic 필터 없음)
 - retrieve_by_query: 쿼리 입력 → 쿼리 임베딩 ↔ 헤딩 임베딩 유사도 비교로 관련 섹션 검색 (chunk_id 포함)
 """
+from __future__ import annotations
+
+from typing import Optional
+
 from config.settings import RETRIEVAL_K
 from src.vectorstore.store import get_vectorstore
 
@@ -33,7 +37,7 @@ def retrieve_by_date(date: str) -> list[dict]:
     return docs
 
 
-def retrieve_by_query(query: str, dates: list[str] | None = None) -> list[dict]:
+def retrieve_by_query(query: str, dates: Optional[list[str]] = None) -> list[dict]:
     """
     내용 기반: 쿼리 임베딩과 ## / ### 헤딩 임베딩 유사도 비교 후 관련 섹션 반환 (chunk_id 포함).
     dates 지정 시 해당 날짜들로 검색 범위 제한.

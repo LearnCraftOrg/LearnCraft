@@ -1,7 +1,9 @@
 """GPT-4o를 사용한 퀴즈 생성 엔진."""
+from __future__ import annotations
+
 import json
-import re
 import os
+import re
 from pathlib import Path
 from uuid import uuid4
 from datetime import datetime, timezone
@@ -45,7 +47,7 @@ class QuizItem(BaseModel):
     source_indices: list[int] = []
     chunk_id_valid: bool = False
     question: str
-    options: QuizOptions | None = None
+    options: Optional[QuizOptions] = None
     answer: str
     explanation: str
 
@@ -183,13 +185,13 @@ def generate_quiz_from_context(
         from src.quiz.evaluator.runner import run_evaluation_from_file
         run_evaluation_from_file(str(log_path))
     except Exception as e:
-        print(f"⚠️ 자동 평가 실패: {e}")
+        print(f"[WARNING] 자동 평가 실패: {e}")
     return record
 
 
 def generate_quiz_multi_from_context(
     ctx: dict,
-    user_query: str | None = None,
+    user_query: Optional[str] = None,
     difficulty: DifficultyLevel = "medium",
 ) -> dict:
     """build_context_by_query() 결과를 받아 LLM 호출만 수행."""
@@ -230,7 +232,7 @@ def generate_quiz_multi_from_context(
         from src.quiz.evaluator.runner import run_evaluation_from_file
         run_evaluation_from_file(str(log_path))
     except Exception as e:
-        print(f"⚠️ 자동 평가 실패: {e}")
+        print(f"[WARNING] 자동 평가 실패: {e}")
     return record
 
 
@@ -254,7 +256,7 @@ def generate_quiz(date: str, difficulty: DifficultyLevel = "medium") -> dict:
 
 def generate_quiz_multi(
     dates: list[str],
-    user_query: str | None = None,
+    user_query: Optional[str] = None,
     difficulty: DifficultyLevel = "medium",
 ) -> dict:
     """

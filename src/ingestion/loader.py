@@ -52,6 +52,9 @@ def load_curriculum() -> dict[str, dict]:
     커리큘럼 CSV 로드 → {date: {week, subject, content, learning_goal, sessions}} 형태로 반환.
     날짜 하나에 오전/오후 여러 row가 있으면 통합.
     """
+    # 커리큘럼 CSV가 없을 경우 빈 딕셔너리 반환 (강의 refined.md만으로도 동작)
+    if not CURRICULUM_PATH.exists():
+        return {}
     df = pd.read_csv(CURRICULUM_PATH, encoding="utf-8")
     df["date"] = df["date"].astype(str).str.strip()
 

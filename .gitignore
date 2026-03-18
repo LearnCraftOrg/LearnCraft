@@ -10,6 +10,8 @@ config/google_credentials.json
 # Data
 data/
 .chroma/
+chroma_db/
+refined/
 
 # Test
 app/tests/
