@@ -112,6 +112,7 @@ def _call_and_validate(messages: list[dict], max_retries: int = 2) -> dict:
             model=LLM_MODEL,
             messages=current_messages,
             temperature=0.7,
+            max_tokens=4096,
         )
         last_raw = response.choices[0].message.content
         try:
