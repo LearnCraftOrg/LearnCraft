@@ -1,7 +1,8 @@
-"""강의 RAG 컨텍스트 구성 파이프라인."""
+"""강의 RAG 컨텍스트 구성 파이프라인 (chunk_id 지원)."""
 from __future__ import annotations
 
 from typing import Optional
+
 
 from src.ingestion.loader import load_curriculum
 from src.rag.retriever import retrieve_by_query
@@ -16,17 +17,34 @@ def build_context_by_date(date: str) -> dict:
             "date": str,
             "curriculum": dict,
             "lecture_context": str,
+            "retrieval_sources": list,
         }
     """
     curriculum_map = load_curriculum()
     curriculum = curriculum_map.get(date, {})
     query = curriculum.get("learning_goal", "") or curriculum.get("content", date)
-    lecture_context = retrieve_by_query(query, dates=[date])
+    
+    # retriever가 list[dict]를 반환함
+    retrieved_docs = retrieve_by_query(query, dates=[date])
+    
+    # LLM 프롬프트용 텍스트 구성 및 소스 메타데이터 보존
+    formatted_context = ""
+    retrieval_sources = []
+    for i, doc in enumerate(retrieved_docs, 1):
+        formatted_context += f"### [Source {i}] (chunk_id: {doc['chunk_id']})\n{doc['content']}\n\n"
+        retrieval_sources.append({
+            "index": i,
+            "chunk_id": doc["chunk_id"],
+            "content": doc["content"],
+            "lecture_date": doc["metadata"].get("date", ""),
+            "metadata": {k: v for k, v in doc["metadata"].items() if k != "date"}
+        })
 
     return {
         "date": date,
         "curriculum": curriculum,
-        "lecture_context": lecture_context,
+        "lecture_context": formatted_context,
+        "retrieval_sources": retrieval_sources
     }
 
 
@@ -39,13 +57,14 @@ def build_context_by_query(dates: list[str], user_query: Optional[str] = None) -
         user_query: 검색 쿼리 (없으면 첫 날짜의 학습목표 사용)
 
     Returns:
-        {dates, curriculum_summary, lecture_context, query}
+        {dates, curriculum_summary, lecture_context, query, retrieval_sources}
     """
     curriculum_map = load_curriculum()
     curriculum_summary = "\n".join(
         f"{d}: {curriculum_map.get(d, {}).get('subject', '')} - {curriculum_map.get(d, {}).get('content', '')}"
         for d in dates
     )
+    
     if user_query and user_query.strip():
         query = user_query.strip()
     elif dates:
@@ -54,10 +73,25 @@ def build_context_by_query(dates: list[str], user_query: Optional[str] = None) -
     else:
         query = user_query or ""
 
-    lecture_context = retrieve_by_query(query, dates or None)
+    # retriever가 list[dict]를 반환함
+    retrieved_docs = retrieve_by_query(query, dates or None)
+    
+    formatted_context = ""
+    retrieval_sources = []
+    for i, doc in enumerate(retrieved_docs, 1):
+        formatted_context += f"### [Source {i}] (chunk_id: {doc['chunk_id']})\n{doc['content']}\n\n"
+        retrieval_sources.append({
+            "index": i,
+            "chunk_id": doc["chunk_id"],
+            "content": doc["content"],
+            "lecture_date": doc["metadata"].get("date", ""),
+            "metadata": {k: v for k, v in doc["metadata"].items() if k != "date"}
+        })
+
     return {
         "dates": dates,
         "curriculum_summary": curriculum_summary,
-        "lecture_context": lecture_context,
+        "lecture_context": formatted_context,
         "query": query,
+        "retrieval_sources": retrieval_sources
     }
