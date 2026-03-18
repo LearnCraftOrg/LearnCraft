@@ -1,7 +1,9 @@
 """GPT-4o를 사용한 퀴즈 생성 엔진."""
+from __future__ import annotations
+
 import json
 import re
-from typing import Literal
+from typing import Literal, Optional
 
 from openai import OpenAI
 from pydantic import BaseModel, ValidationError, model_validator
@@ -39,7 +41,7 @@ class QuizOptions(BaseModel):
 class QuizItem(BaseModel):
     type: Literal["multiple_choice", "short_answer"]
     question: str
-    options: QuizOptions | None = None
+    options: Optional[QuizOptions] = None
     answer: str
     explanation: str
 
@@ -135,7 +137,7 @@ def generate_quiz_from_context(
 
 def generate_quiz_multi_from_context(
     ctx: dict,
-    user_query: str | None = None,
+    user_query: Optional[str] = None,
     difficulty: DifficultyLevel = "medium",
 ) -> dict:
     """build_context_by_query() 결과를 받아 LLM 호출만 수행."""
@@ -175,7 +177,7 @@ def generate_quiz(date: str, difficulty: DifficultyLevel = "medium") -> dict:
 
 def generate_quiz_multi(
     dates: list[str],
-    user_query: str | None = None,
+    user_query: Optional[str] = None,
     difficulty: DifficultyLevel = "medium",
 ) -> dict:
     """
