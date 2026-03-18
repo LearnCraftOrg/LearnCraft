@@ -185,7 +185,7 @@ def generate_quiz_from_context(
         from src.quiz.evaluator.runner import run_evaluation_from_file
         run_evaluation_from_file(str(log_path))
     except Exception as e:
-        print(f"⚠️ 자동 평가 실패: {e}")
+        print(f"[WARNING] 자동 평가 실패: {e}")
     return record
 
 
@@ -232,7 +232,7 @@ def generate_quiz_multi_from_context(
         from src.quiz.evaluator.runner import run_evaluation_from_file
         run_evaluation_from_file(str(log_path))
     except Exception as e:
-        print(f"⚠️ 자동 평가 실패: {e}")
+        print(f"[WARNING] 자동 평가 실패: {e}")
     return record
 
 
