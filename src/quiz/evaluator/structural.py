@@ -1,5 +1,6 @@
 """구조적 유효성 평가 - 퀴즈 세트 및 문항 단위 검증."""
 
+import re
 from typing import Any
 
 # ── 상수 ──────────────────────────────────────────────────────────────────────
@@ -75,6 +76,33 @@ def validate_quiz_item(quiz: dict) -> dict:
     explanation = quiz.get("explanation", "")
     if not explanation:
         errors.append("explanation 필드가 없거나 비어있음")
+    else:
+        # 1. 공통: 정답 근거 존재 여부 확인
+        if "✅ 정답 근거" not in explanation:
+            errors.append("해설 내 '✅ 정답 근거' 섹션 누락")
+
+        # 2. MCQ: 오답 함정 상세 존재 여부 확인
+        if quiz_type == "multiple_choice":
+            m = re.search(r"❌ 오답 함정:\s*(.*?)(?=\||✅|📌|$)", explanation, re.DOTALL)
+            if not m:
+                errors.append("해설 내 '❌ 오답 함정' 섹션 누락")
+            else:
+                distractor_text = m.group(1).strip()
+                distractor_reasons = {}
+                # A-이유, A는 이유, A: 이유 등 패턴 처리
+                for dm in re.finditer(r"\b([A-D])(?:[–\-]|는|:)\s*(.+?)(?=(?:,\s*)?[A-D](?:[–\-]|는|:)|$)", distractor_text, re.DOTALL):
+                    distractor_reasons[dm.group(1)] = dm.group(2).strip().rstrip(",").strip()
+                
+                # 정답을 제외한 모든 선택지에 대한 해설이 있는지 확인
+                options = quiz.get("options", {})
+                answer = quiz.get("answer", "")
+                missing_reasons = []
+                for k in options:
+                    if k != answer and k not in distractor_reasons:
+                        missing_reasons.append(k)
+                
+                if missing_reasons:
+                    errors.append(f"오답 해설 누락: {', '.join(missing_reasons)} (해설 내 '❌ 오답 함정' 섹션에 기재 필요)")
 
     # ── MCQ 추가 필드 ─────────────────────────────────────────────────────────
 
