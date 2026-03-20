@@ -4,7 +4,7 @@ import json
 import re
 
 from openai import OpenAI
-from config.settings import OPENAI_API_KEY
+from config.settings import GEMINI_API_KEY, EVAL_MODEL
 
 _client = None
 
@@ -12,7 +12,10 @@ _client = None
 def _get_client() -> OpenAI:
     global _client
     if _client is None:
-        _client = OpenAI(api_key=OPENAI_API_KEY)
+        _client = OpenAI(
+            api_key=GEMINI_API_KEY,
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+        )
     return _client
 
 
@@ -43,8 +46,12 @@ _EVAL_USER = """아래 강의 청크를 근거 자료로 삼아 퀴즈 문항을
 
 ### 2. 해설 품질
 정답 근거가 강의 청크 내용과 일치하는가? 객관식의 경우 오답 함정이 각 선택지별로 구체적 이유를 설명하는가?
-- PASS: 해설이 정확하고 구체적임
-- FAIL: 해설이 부정확하거나 지나치게 모호함 (예: "A는 잘못된 설명이다" 수준)
+- PASS: 각 오답이 "무엇이 아닌지"가 아니라 "실제로 무엇인지 / 왜 이 문제에 맞지 않는지"까지 설명함
+- FAIL 조건 (하나라도 해당하면 FAIL):
+  · "A는 잘못됐다", "C는 관련 없다", "D는 다른 기능이다" 처럼 틀렸다는 결론만 말하고 실제 개념 설명이 없음
+  · 오답이 실제로 무엇을 의미하는지, 왜 이 문제의 정답이 될 수 없는지 설명하지 않음
+  · 여러 선택지를 묶어서 "A, C, D는 관련이 없다"처럼 처리
+  · 정답 근거가 강의 청크 내용과 다르거나 지나치게 추상적
 
 반드시 아래 JSON 구조로만 응답하세요:
 ```json
@@ -131,7 +138,7 @@ def evaluate_grounding(quiz: dict, retrieval_sources: list[dict]) -> dict:
 
     try:
         response = _get_client().chat.completions.create(
-            model="gpt-4o-mini",
+            model=EVAL_MODEL,
             messages=[
                 {"role": "system", "content": _EVAL_SYSTEM},
                 {"role": "user", "content": user_prompt},
