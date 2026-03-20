@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import os
 from pathlib import Path
 from uuid import uuid4
 from datetime import datetime, timezone
@@ -14,14 +15,22 @@ from pydantic import BaseModel, ValidationError, model_validator
 
 from config.settings import LLM_MODEL, OPENAI_API_KEY
 from src.quiz.prompts import (
-    QUIZ_SYSTEM_PROMPT,
-    QUIZ_USER_PROMPT,
-    QUIZ_MULTI_USER_PROMPT,
-    get_quiz_request,
+    QUIZ_SYSTEM_PROMPT, QUIZ_USER_PROMPT, QUIZ_MULTI_USER_PROMPT,
+    _DIFFICULTY_CONFIG, _QUIZ_REQUEST_TEMPLATE,
 )
 from src.rag.pipeline import build_context_by_date, build_context_by_query
 
 DifficultyLevel = Literal["easy", "medium", "hard"]
+
+
+def get_quiz_request(difficulty: str = "medium") -> str:
+    """난이도에 맞는 문항 요청 블록 반환."""
+    cfg = _DIFFICULTY_CONFIG.get(difficulty, _DIFFICULTY_CONFIG["medium"])
+    return _QUIZ_REQUEST_TEMPLATE.format(
+        difficulty_label=cfg["label"],
+        difficulty_instruction=cfg["instruction"],
+        distribution=cfg["distribution"],
+    )
 
 _client = None
 
@@ -185,7 +194,7 @@ def generate_quiz_from_context(
         from src.quiz.evaluator.runner import run_evaluation_from_file
         run_evaluation_from_file(str(log_path))
     except Exception as e:
-        print(f"[WARNING] 자동 평가 실패: {e}")
+        print(f"⚠️ 자동 평가 실패: {e}")
     return record
 
 
@@ -232,7 +241,7 @@ def generate_quiz_multi_from_context(
         from src.quiz.evaluator.runner import run_evaluation_from_file
         run_evaluation_from_file(str(log_path))
     except Exception as e:
-        print(f"[WARNING] 자동 평가 실패: {e}")
+        print(f"⚠️ 자동 평가 실패: {e}")
     return record
 
 

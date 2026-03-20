@@ -6,13 +6,16 @@ ROOT = Path(__file__).parent.parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+import time
+
 import pandas as pd
 import streamlit as st
 
 from src.vectorstore.store import get_indexed_dates
-from src.ingestion.loader import extract_stt_metadata
+from src.ingestion.loader import load_lecture_topics
 from src.rag.pipeline import build_context_by_date, build_context_by_query
 from src.quiz.generator import generate_quiz_from_context, generate_quiz_multi_from_context
+from src.quiz.scoring import evaluate_short_answer
 
 st.set_page_config(page_title="퀴즈 풀기", page_icon="📝", layout="wide")
 st.title("📝 복습 퀴즈")
@@ -33,6 +36,7 @@ for key, default in [
     ("quiz_idx", 0),
     ("quiz_answers", {}),
     ("quiz_checked", {}),
+    ("quiz_eval_results", {}),
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
@@ -44,8 +48,7 @@ def render_selection_view():
 
     rows = []
     for date in indexed_dates:
-        meta = extract_stt_metadata(date)
-        topic = meta["content"][:60] if meta.get("content") else date
+        topic = load_lecture_topics(date) or date
         rows.append({"선택": False, "날짜": date, "주제": topic})
 
     df = pd.DataFrame(rows)
@@ -132,19 +135,23 @@ def render_loading_view():
     with st.status("퀴즈 준비 중...", expanded=True) as status:
         try:
             st.write("📄 문서 불러오는 중...")
+            t0 = time.perf_counter()
             if is_single:
                 ctx = build_context_by_date(dates[0])
             else:
                 ctx = build_context_by_query(dates, query if has_text else None)
+            print(f"[TIMING] build_context: {time.perf_counter()-t0:.2f}s")
             st.write("✅ 문서 불러오기 완료")
 
             st.write("🤖 GPT-4o mini로 문제 생성 중...")
+            t1 = time.perf_counter()
             if is_single:
                 result = generate_quiz_from_context(ctx, difficulty=difficulty)
                 st.session_state["quiz_result_cache"] = result  # 캐시 저장
                 status.update(label="✅ 퀴즈 준비 완료!", state="complete")
             else:
                 result = generate_quiz_multi_from_context(ctx, query if has_text else None, difficulty=difficulty)
+            print(f"[TIMING] generate_quiz: {time.perf_counter()-t1:.2f}s")
 
             status.update(label="✅ 퀴즈 준비 완료!", state="complete")
         except Exception as e:
@@ -224,6 +231,15 @@ def render_quiz_view():
     if not is_checked:
         if st.button("확인", disabled=not has_answer):
             st.session_state["quiz_checked"][idx] = True
+            if q["type"] == "short_answer":
+                with st.spinner("답안 평가 중..."):
+                    result = evaluate_short_answer(
+                        question=q["question"],
+                        correct_answer=q["answer"],
+                        user_answer=typed,
+                        explanation=q["explanation"],
+                    )
+                st.session_state["quiz_eval_results"][idx] = result
             st.rerun()
     else:
         user_ans = st.session_state["quiz_answers"].get(idx, "")
@@ -231,7 +247,7 @@ def render_quiz_view():
         if q["type"] == "multiple_choice":
             is_correct = bool(user_ans and user_ans.startswith(correct_ans))
         else:
-            is_correct = bool(user_ans.strip() and correct_ans.lower() in user_ans.lower())
+            is_correct = st.session_state["quiz_eval_results"].get(idx, False)
 
         if is_correct:
             st.success(f"✅ 정답! | 해설: {q['explanation']}")
@@ -263,7 +279,7 @@ def render_quiz_view():
                 if ans and ans.startswith(q_item["answer"]):
                     correct_count += 1
             else:
-                if ans.strip() and q_item["answer"].lower() in ans.lower():
+                if st.session_state["quiz_eval_results"].get(i, False):
                     correct_count += 1
 
         score_pct = int(correct_count / total * 100)
@@ -282,6 +298,7 @@ def render_quiz_view():
                 st.session_state["quiz_idx"] = 0
                 st.session_state["quiz_answers"] = {}
                 st.session_state["quiz_checked"] = {}
+                st.session_state["quiz_eval_results"] = {}
                 st.rerun()
         with col_new:
             if st.button("✏️ 새 문제 생성", use_container_width=True):
@@ -290,6 +307,7 @@ def render_quiz_view():
                 st.session_state["quiz_idx"] = 0
                 st.session_state["quiz_answers"] = {}
                 st.session_state["quiz_checked"] = {}
+                st.session_state["quiz_eval_results"] = {}
                 st.rerun()
 
 

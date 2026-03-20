@@ -185,7 +185,7 @@ def validate_quiz_set(quiz_set: dict) -> dict:
 
 def print_report(result: dict) -> None:
     """검증 결과를 사람이 읽기 좋게 출력."""
-    status = "[PASS]" if result["pass"] else "[FAIL]"
+    status = "✅ PASS" if result["pass"] else "❌ FAIL"
     print(f"\n{'='*60}")
     print(f"퀴즈 세트: {result['quiz_set_id']}")
     print(f"결과: {status}")
@@ -193,21 +193,21 @@ def print_report(result: dict) -> None:
     if result["set_errors"]:
         print("\n[세트 오류]")
         for e in result["set_errors"]:
-            print(f"  [ERROR] {e}")
+            print(f"  ❌ {e}")
 
     if result["set_warnings"]:
         print("\n[세트 경고]")
         for w in result["set_warnings"]:
-            print(f"  [WARN] {w}")
+            print(f"  ⚠️  {w}")
 
     print("\n[문항별 결과]")
     for item in result["item_results"]:
-        item_status = "[OK]" if item["pass"] else "[FAIL]"
+        item_status = "✅" if item["pass"] else "❌"
         print(f"  {item_status} {item['quiz_id']}")
         for e in item["errors"]:
-            print(f"      [ERROR] {e}")
+            print(f"      ❌ {e}")
         for w in item["warnings"]:
-            print(f"      [WARN] {w}")
+            print(f"      ⚠️  {w}")
 
     print(f"{'='*60}\n")
 

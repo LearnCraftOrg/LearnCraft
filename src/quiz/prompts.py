@@ -107,15 +107,6 @@ _QUIZ_REQUEST_TEMPLATE = """## 난이도: {difficulty_label}
 ```"""
 
 
-def get_quiz_request(difficulty: str = "medium") -> str:
-    """난이도에 맞는 문항 요청 블록 반환."""
-    cfg = _DIFFICULTY_CONFIG.get(difficulty, _DIFFICULTY_CONFIG["medium"])
-    return _QUIZ_REQUEST_TEMPLATE.format(
-        difficulty_label=cfg["label"],
-        difficulty_instruction=cfg["instruction"],
-        distribution=cfg["distribution"],
-    )
-
 
 QUIZ_USER_PROMPT = """아래 강의 내용을 바탕으로 복습 퀴즈를 생성하세요.
 
@@ -142,6 +133,18 @@ QUIZ_MULTI_USER_PROMPT = """아래 강의 내용을 바탕으로 복습 퀴즈�
 
 {quiz_request}"""
 
+
+# ── Short Answer Scoring ──────────────────────────────────────────────────────
+
+SCORING_SYSTEM_PROMPT = """\
+당신은 학생의 서술형 답안을 채점하는 교육 평가자입니다.
+주어진 문제, 모범 답안, 해설을 참고하여 학생 답안의 정오를 판단하세요.
+
+규칙:
+- 표현이 달라도 핵심 개념이 맞으면 정답으로 처리합니다.
+- 부분적으로만 맞거나 핵심을 빠뜨린 경우는 오답으로 처리합니다.
+- 반드시 JSON 형식으로만 응답하세요: {"correct": true} 또는 {"correct": false}
+"""
 
 # ── Guide Generation ──────────────────────────────────────────────────────────
 
