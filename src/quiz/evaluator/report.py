@@ -101,17 +101,31 @@ def _render_grounding(result: dict, quizzes: list[dict], sources: list[dict]) ->
             answer_text = answer
         grounding_qa_target = f"{question}에 대한 정답은 {answer_text}이다."
 
-        source_chunk_ids = quiz_obj.get("source_chunk_ids")
-        if source_chunk_ids is None:
-            legacy_id = quiz_obj.get("source_chunk_id")
-            source_chunk_ids = [legacy_id] if legacy_id else []
+        # BM25 매칭 결과 (신규) 또는 fallback (구버전 호환)
+        source_chunks_bm25 = quiz_obj.get("source_chunks_bm25")
+        if source_chunks_bm25 is None:
+            raw_ids = quiz_obj.get("source_chunk_ids") or []
+            if not raw_ids:
+                legacy_id = quiz_obj.get("source_chunk_id")
+                raw_ids = [legacy_id] if legacy_id else []
+            source_chunks_bm25 = [{"chunk_id": sid, "bm25_score": None} for sid in raw_ids]
+        # BM25 점수 내림차순 정렬 (None은 뒤로)
+        source_chunks_bm25 = sorted(
+            source_chunks_bm25,
+            key=lambda m: m.get("bm25_score") or 0,
+            reverse=True,
+        )
+        source_chunk_ids = [m["chunk_id"] for m in source_chunks_bm25]
 
         sources_html = ""
-        for idx, sid in enumerate(source_chunk_ids):
+        for idx, chunk_info in enumerate(source_chunks_bm25):
+            sid = chunk_info["chunk_id"]
+            bm25_score = chunk_info.get("bm25_score")
+            score_str = f" | BM25: {bm25_score:.4f}" if bm25_score is not None else ""
             s_content = source_map.get(sid, "(근거 청크 없음)")
             sources_html += f"""
                 <details style="font-size:0.85em;margin-bottom:8px;border:1px solid #eee;padding:4px;border-radius:4px;">
-                    <summary style="cursor:pointer;color:#2563eb;">📖 참조 청크 {idx+1} 보기 ({sid[:8]}...)</summary>
+                    <summary style="cursor:pointer;color:#2563eb;">📖 참조 청크 {idx+1} 보기 ({sid[:8]}...{score_str})</summary>
                     <pre style="white-space:pre-wrap;margin-top:8px;background:#f8fafc;padding:8px;font-family:inherit;">{s_content}</pre>
                 </details>
             """

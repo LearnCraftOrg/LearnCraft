@@ -161,10 +161,10 @@ def evaluate_grounding(quiz: dict, retrieval_sources: list[dict]) -> dict:
     # 스타일별 임계값 설정 (비교형은 0.4, 나머지는 0.5)
     current_threshold = THRESHOLD_QA_COMPARISON if style == "comparison" else THRESHOLD_PASS
     
-    # code 유형은 문제+정답 Grounding 스킵
-    # 정답이 코드라 자연어 청크와 매칭 불가 (prediction은 예측값이므로 포함 시도)
+    # code/prediction 유형은 문제+정답 Grounding 스킵
+    # 정답이 코드이거나 코드 실행 결과(값)라 자연어 청크와 매칭 불가
     qa_result = {"support_score": None, "uncited_claims": []}
-    qa_skipped = style == "code"
+    qa_skipped = style in ("code", "prediction")
     
     # 실패 원인 상세 분류를 위한 헬퍼
     def categorize_fail(score, threshold):
