@@ -187,18 +187,28 @@ def validate_quiz_set(quiz_set: dict) -> dict:
                 f"유형 분포 오류 [{style}]: {actual_count}개 (기대: {expected_count}개)"
             )
 
+    # ── 정답 분포 검증 ────────────────────────────────────────────────────────
+    
+    answer_dist = {"A": 0, "B": 0, "C": 0, "D": 0}
+    for q in quizzes:
+        if q.get("type") == "multiple_choice":
+            ans = q.get("answer")
+            if ans in answer_dist:
+                answer_dist[ans] += 1
+    
+    for label, count in answer_dist.items():
+        if count >= 5:
+            set_errors.append(f"정답 분포 심각한 편중: '{label}'이 {count}회 등장 (7문항 중 5회 이상)")
+        elif count >= 4:
+            set_warnings.append(f"정답 분포 편중 주의: '{label}'이 {count}회 등장 (7문항 중 4회 이상)")
+
     # ── 문항 단위 검증 ────────────────────────────────────────────────────────
 
     item_results = [validate_quiz_item(q) for q in quizzes]
     failed_items = [r for r in item_results if not r["pass"]]
 
-    # 문항 단위 fail이 하나라도 있으면 세트 fail
-    if failed_items:
-        set_errors.append(
-            f"문항 단위 검증 실패: {len(failed_items)}개 문항 오류"
-        )
-
-    overall_pass = len(set_errors) == 0
+    # 세트 자체 에러와 문항 단위 에러 중 하나라도 있으면 세트 fail
+    overall_pass = (len(set_errors) == 0) and (len(failed_items) == 0)
 
     return {
         "quiz_set_id": quiz_set_id,

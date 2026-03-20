@@ -199,7 +199,7 @@ def _render_structural(result: dict) -> str:
         <div class="card-body">
             <div class="check-group">
                 <div class="check-label">세트</div>
-                <div class="check-desc">총 문항 수(10개) · MCQ 7 / 단답형 3 · 난이도별 유형 분포</div>
+                <div class="check-desc">총 문항 수(10개) · MCQ 7 / 단답형 3 · 난이도별 유형 분포 · 정답 분포(A/B/C/D) 균형</div>
                 <div class="check-result">{set_issues}</div>
             </div>
             <div class="check-group">
