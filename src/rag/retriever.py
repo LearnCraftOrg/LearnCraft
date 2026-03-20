@@ -37,7 +37,7 @@ def retrieve_by_date(date: str) -> list[dict]:
     return docs
 
 
-def retrieve_by_query(query: str, dates: Optional[list[str]] = None) -> list[dict]:
+def retrieve_by_query(query: str, dates: [list[str]] = None) -> list[dict]:
     """
     내용 기반: 쿼리 임베딩과 ## / ### 헤딩 임베딩 유사도 비교 후 관련 섹션 반환 (chunk_id 포함).
     dates 지정 시 해당 날짜들로 검색 범위 제한.
