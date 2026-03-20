@@ -40,7 +40,7 @@ def build_context_by_date(date: str) -> dict:
     }
 
 
-def build_context_by_query(dates: list[str], user_query: str | None = None) -> dict:
+def build_context_by_query(dates: list[str], user_query: Optional[str] = None) -> dict:
     """
     쿼리 기반 컨텍스트 구성. 쿼리와 헤딩 임베딩 유사도로 관련 섹션 검색.
 
