@@ -1,243 +1,191 @@
-"""Vertex AI Check Grounding API를 사용한 Grounding 평가."""
+"""GPT-4o 기반 Grounding(할루시네이션) + 해설 품질 평가."""
 
+import json
 import re
-import google.cloud.discoveryengine_v1alpha as discoveryengine
-from config.settings import GCP_PROJECT_ID
 
-# ── 상수 ──────────────────────────────────────────────────────────────────────
+from openai import OpenAI
+from config.settings import OPENAI_API_KEY
 
-GROUNDING_CONFIG = f"projects/{GCP_PROJECT_ID}/locations/global/groundingConfigs/default_grounding_config"
-
-# 임계값 (데이터 쌓이면 조정)
-THRESHOLD_PASS = 0.5          # PASS 기준 (이상)
-THRESHOLD_FAIL = 0.3          # FAIL 기준 (미만)
-THRESHOLD_QA_COMPARISON = 0.4 # 비교형 문제 (기존 기준 유지)
-
-# ── 해설 파싱 ─────────────────────────────────────────────────────────────────
-
-def parse_explanation(explanation: str, quiz_type: str) -> dict:
-    """
-    해설에서 Grounding 검증 대상 텍스트만 추출.
-
-    MCQ:    ✅ 정답 근거만 추출 (❌ 오답 함정 제외)
-    단답형: ✅ 정답 근거만 추출
-
-    Returns:
-        {
-            "grounding_target": str,  # 검증할 텍스트
-            "skipped": str,           # 제외된 텍스트 (오답 함정)
-        }
-    """
-    grounding_target = ""
-    skipped = ""
-
-    # ✅ 정답 근거 추출 (| 이전까지)
-    match_correct = re.search(r"✅ 정답 근거:\s*(.*?)(?:\||$)", explanation, re.DOTALL)
-    if match_correct:
-        grounding_target += match_correct.group(1).strip()
-
-    if quiz_type == "multiple_choice":
-        # ❌ 오답 함정은 제외
-        match_wrong = re.search(r"❌ 오답 함정:\s*(.*?)$", explanation, re.DOTALL)
-        if match_wrong:
-            skipped = match_wrong.group(1).strip()
-
-    elif quiz_type == "short_answer":
-        # 핵심 포인트는 검증 대상에서 제외 (사용자 요청)
-        pass
-
-    return {
-        "grounding_target": grounding_target.strip(),
-        "skipped": skipped,
-    }
+_client = None
 
 
-# ── Vertex AI API 호출 ────────────────────────────────────────────────────────
-
-def _check_grounding(answer_candidate: str, fact_text: str) -> dict:
-    """
-    Vertex AI Check Grounding API 단일 호출.
-
-    Returns:
-        {
-            "support_score": float,
-            "cited_chunks": list,
-            "uncited_claims": list,
-        }
-    """
-    client = discoveryengine.GroundedGenerationServiceClient()
-
-    request = discoveryengine.CheckGroundingRequest(
-        grounding_config=GROUNDING_CONFIG,
-        answer_candidate=answer_candidate,
-        facts=[
-            discoveryengine.GroundingFact(
-                fact_text=fact_text,
-            )
-        ],
-    )
-
-    response = client.check_grounding(request=request)
-
-    # 근거 없는 claim 추출
-    uncited_claims = [
-        claim.claim_text
-        for claim in response.claims
-        if not claim.citation_indices
-    ]
-
-    return {
-        "support_score": response.support_score,
-        "cited_chunks": list(response.cited_chunks),
-        "uncited_claims": uncited_claims,
-    }
+def _get_client() -> OpenAI:
+    global _client
+    if _client is None:
+        _client = OpenAI(api_key=OPENAI_API_KEY)
+    return _client
 
 
-# ── 문항 단위 Grounding 평가 ──────────────────────────────────────────────────
+# ── 프롬프트 ──────────────────────────────────────────────────────────────────
+
+_EVAL_SYSTEM = """당신은 퀴즈 품질 평가 전문가입니다.
+주어진 강의 청크만을 근거로 퀴즈 문항의 할루시네이션 여부와 해설 품질을 평가합니다.
+반드시 JSON 형식으로만 응답하세요."""
+
+_EVAL_USER = """아래 강의 청크를 근거 자료로 삼아 퀴즈 문항을 평가하세요.
+
+## 강의 청크 (근거 자료)
+{source_context}
+
+## 퀴즈 문항
+- 유형: {style}
+- 문제: {question}
+- 정답: {answer_text}
+- 해설: {explanation}
+{options_section}
+
+## 평가 항목
+
+### 1. Grounding (할루시네이션 감지)
+문제와 정답이 강의 청크에 근거하는가?
+- PASS: 문제와 정답이 강의 청크 내용에 근거함
+- FAIL: 강의 청크에 없는 외부 개념이나 사실을 사용함
+
+### 2. 해설 품질
+정답 근거가 강의 청크 내용과 일치하는가? 객관식의 경우 오답 함정이 각 선택지별로 구체적 이유를 설명하는가?
+- PASS: 해설이 정확하고 구체적임
+- FAIL: 해설이 부정확하거나 지나치게 모호함 (예: "A는 잘못된 설명이다" 수준)
+
+반드시 아래 JSON 구조로만 응답하세요:
+```json
+{{
+  "grounding": {{
+    "pass": true,
+    "reason": "판단 이유를 한 문장으로"
+  }},
+  "explanation": {{
+    "pass": true,
+    "reason": "판단 이유를 한 문장으로"
+  }}
+}}
+```"""
+
+
+# ── 문항 단위 평가 ────────────────────────────────────────────────────────────
 
 def evaluate_grounding(quiz: dict, retrieval_sources: list[dict]) -> dict:
     """
-    문항 하나에 대해 Grounding 평가 수행.
-
-    1번 호출: 문제 + 정답
-    2번 호출: 해설 (정답 근거 + 핵심 포인트, 오답 함정 제외)
+    문항 하나에 대해 Grounding + 해설 품질 평가.
 
     Returns:
         {
             "quiz_id": str,
             "pass": bool,
             "errors": list[str],
-            "warnings": list[str],    # 0.3 ~ 0.5 사이 (사람 검토 필요)
-            "qa_score": float,
-            "explanation_score": float,
-            "qa_uncited_claims": list[str],
-            "explanation_uncited_claims": list[str],
+            "warnings": list[str],
+            "grounding_pass": bool | None,
+            "grounding_reason": str | None,
+            "explanation_pass": bool | None,
+            "explanation_reason": str | None,
         }
     """
-    errors = []
-    warnings = []
     quiz_id = quiz.get("quiz_id", "unknown")
+    style = quiz.get("style", "")
     quiz_type = quiz.get("type", "")
 
-    # chunk_id_valid 확인 (structural에서 이미 걸러지지만 방어 코드)
-    if not quiz.get("chunk_id_valid", False):
-        return {
-            "quiz_id": quiz_id,
-            "pass": False,
-            "errors": ["chunk_id_valid = False → Grounding 평가 불가"],
-            "warnings": [],
-            "qa_score": None,
-            "explanation_score": None,
-            "qa_uncited_claims": [],
-            "explanation_uncited_claims": [],
-        }
+    # 소스 청크 조회 (BM25 매칭 결과 우선, fallback으로 source_chunk_ids)
+    source_chunks_bm25 = quiz.get("source_chunks_bm25")
+    if source_chunks_bm25 is None:
+        raw_ids = quiz.get("source_chunk_ids") or []
+        if not raw_ids:
+            legacy_id = quiz.get("source_chunk_id")
+            raw_ids = [legacy_id] if legacy_id else []
+        source_chunks_bm25 = [{"chunk_id": sid, "bm25_score": None} for sid in raw_ids]
 
-    # source_chunk_ids 합치기 (v2: 리스트, v1: 단일 문자열 호환)
-    source_chunk_ids = quiz.get("source_chunk_ids")
-    if source_chunk_ids is None:
-        legacy_id = quiz.get("source_chunk_id")
-        source_chunk_ids = [legacy_id] if legacy_id else []
-
-    relevant_chunks = [
-        s["content"] for s in retrieval_sources if s["chunk_id"] in source_chunk_ids
-    ]
+    source_chunk_ids = [m["chunk_id"] for m in source_chunks_bm25]
+    relevant_chunks = [s["content"] for s in retrieval_sources if s["chunk_id"] in source_chunk_ids]
     source_context = "\n\n".join(relevant_chunks)
 
     if not source_context:
         return {
             "quiz_id": quiz_id,
             "pass": False,
-            "errors": [f"source_chunk_ids {source_chunk_ids}에 해당하는 청크를 찾을 수 없음"],
+            "errors": ["참조 청크를 찾을 수 없음 → 평가 불가"],
             "warnings": [],
-            "qa_score": None,
-            "explanation_score": None,
-            "qa_uncited_claims": [],
-            "explanation_uncited_claims": [],
+            "grounding_pass": None,
+            "grounding_reason": None,
+            "explanation_pass": None,
+            "explanation_reason": None,
         }
-    
-    style = quiz.get("style", "")
-    is_comparison = style == "comparison"
 
-    # 스타일별 임계값 설정 (비교형은 0.4, 나머지는 0.5)
-    current_threshold = THRESHOLD_QA_COMPARISON if style == "comparison" else THRESHOLD_PASS
-    
-    # code/prediction 유형은 문제+정답 Grounding 스킵
-    # 정답이 코드이거나 코드 실행 결과(값)라 자연어 청크와 매칭 불가
-    qa_result = {"support_score": None, "uncited_claims": []}
-    qa_skipped = style in ("code", "prediction")
-    
-    # 실패 원인 상세 분류를 위한 헬퍼
-    def categorize_fail(score, threshold):
-        if score is None: return None
-        if score < 0.1: return "mismatch" # 오매핑 의심
-        if score < threshold - 0.1: return "hallucination" # 환각 의심
-        return "threshold_miss" # 아슬아슬하게 미달
+    question = quiz.get("question", "")
+    answer = quiz.get("answer", "")
+    options = quiz.get("options", {})
+    explanation = quiz.get("explanation", "")
 
-    qa_fail_reason = None
-    explanation_fail_reason = None
+    answer_text = options.get(answer, answer) if quiz_type == "multiple_choice" else answer
 
-    if not qa_skipped:
-        question = quiz.get("question", "")
-        answer = quiz.get("answer", "")
-        if quiz_type == "multiple_choice":
-            options = quiz.get("options", {})
-            answer_text = options.get(answer, answer)
-        else:
-            answer_text = answer
+    options_section = ""
+    if quiz_type == "multiple_choice" and options:
+        options_lines = "\n".join(f"  {k}: {v}" for k, v in options.items())
+        options_section = f"- 선택지:\n{options_lines}"
 
-        # Grounding API는 '주장(claims)'의 사실 여부를 판단함. 
-        # 서술형 문장 구조로 전달하는 것이 더 정확함.
-        qa_candidate = f"{question}에 대한 정답은 {answer_text}이다."
+    user_prompt = _EVAL_USER.format(
+        source_context=source_context,
+        style=style,
+        question=question,
+        answer_text=answer_text,
+        explanation=explanation,
+        options_section=options_section,
+    )
 
-        try:
-            qa_result = _check_grounding(qa_candidate, source_context)
-            score = qa_result["support_score"]
-            
-            if is_comparison:
-                # 비교형은 기존처럼 0.4 기준 (FAIL/PASS)
-                if score < THRESHOLD_QA_COMPARISON:
-                    errors.append(f"문제+정답 Grounding 점수 미달: {score:.2f} (기준: {THRESHOLD_QA_COMPARISON})")
-            else:
-                # 일반 문항: 3단계 평가
-                if score < THRESHOLD_FAIL:
-                    errors.append(f"문제+정답 Grounding 점수 미달 (FAIL): {score:.2f} (기준: {THRESHOLD_FAIL})")
-                elif score < THRESHOLD_PASS:
-                    warnings.append(f"문제+정답 Grounding 모호 (WARN - 사람 검토 필요): {score:.2f} (기준: {THRESHOLD_PASS})")
+    try:
+        response = _get_client().chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": _EVAL_SYSTEM},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0,
+            max_tokens=512,
+        )
+        raw = response.choices[0].message.content
+        match = re.search(r"```json\s*(.*?)\s*```", raw, re.DOTALL)
+        result = json.loads(match.group(1) if match else raw)
 
-        except Exception as e:
-            return {
-                "quiz_id": quiz_id,
-                "pass": False,
-                "errors": [f"Grounding API 호출 실패 (문제+정답): {e}"],
-                "warnings": [],
-                "qa_score": None,
-                "explanation_score": None,
-                "qa_uncited_claims": [],
-                "explanation_uncited_claims": [],
-            }
+        g = result.get("grounding", {})
+        grounding_pass = g.get("pass", False)
+        grounding_reason = g.get("reason", "")
 
-    # ── 2번 호출: 해설 (스킵 - 사용자 요청) ──────────────────────────────────────
-    explanation_result = {"support_score": None, "uncited_claims": []}
+        e = result.get("explanation", {})
+        explanation_pass = e.get("pass", False)
+        explanation_reason = e.get("reason", "")
 
-    return {
-        "quiz_id": quiz_id,
-        "pass": len(errors) == 0,
-        "errors": errors,
-        "warnings": warnings,
-        "qa_skipped": qa_skipped,
-        "qa_score": qa_result["support_score"],
-        "explanation_score": explanation_result.get("support_score"),
-        "qa_uncited_claims": qa_result["uncited_claims"],
-        "explanation_uncited_claims": explanation_result.get("uncited_claims", []),
-    }
+        errors = []
+        if not grounding_pass:
+            errors.append(f"Grounding FAIL: {grounding_reason}")
+        if not explanation_pass:
+            errors.append(f"해설 FAIL: {explanation_reason}")
+
+        return {
+            "quiz_id": quiz_id,
+            "pass": len(errors) == 0,
+            "errors": errors,
+            "warnings": [],
+            "grounding_pass": grounding_pass,
+            "grounding_reason": grounding_reason,
+            "explanation_pass": explanation_pass,
+            "explanation_reason": explanation_reason,
+        }
+
+    except Exception as e:
+        return {
+            "quiz_id": quiz_id,
+            "pass": False,
+            "errors": [f"LLM 평가 호출 실패: {e}"],
+            "warnings": [],
+            "grounding_pass": None,
+            "grounding_reason": None,
+            "explanation_pass": None,
+            "explanation_reason": None,
+        }
 
 
-
-# ── 세트 단위 Grounding 평가 ──────────────────────────────────────────────────
+# ── 세트 단위 평가 ────────────────────────────────────────────────────────────
 
 def evaluate_grounding_set(quiz_set: dict) -> dict:
     """
-    퀴즈 세트 전체 Grounding 평가.
+    퀴즈 세트 전체 Grounding + 해설 품질 평가.
 
     Returns:
         {
@@ -250,11 +198,7 @@ def evaluate_grounding_set(quiz_set: dict) -> dict:
     quizzes = quiz_set.get("quizzes", [])
     retrieval_sources = quiz_set.get("retrieval_sources", [])
 
-    item_results = [
-        evaluate_grounding(quiz, retrieval_sources)
-        for quiz in quizzes
-    ]
-
+    item_results = [evaluate_grounding(quiz, retrieval_sources) for quiz in quizzes]
     failed = [r for r in item_results if not r["pass"]]
 
     return {

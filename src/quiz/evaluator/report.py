@@ -10,7 +10,6 @@ if str(ROOT) not in sys.path:
 
 from config.settings import QUIZ_EVAL_DIR, QUIZ_REPORT_DIR, GENERATED_QUIZ_DIR
 from src.quiz.evaluator.duplicate import THRESHOLD_DUPLICATE
-from src.quiz.evaluator.grounding import THRESHOLD_PASS, THRESHOLD_FAIL, THRESHOLD_QA_COMPARISON
 
 
 def _badge(text: str, color: str) -> str:
@@ -130,30 +129,34 @@ def _render_grounding(result: dict, quizzes: list[dict], sources: list[dict]) ->
                 </details>
             """
 
-        qa_skipped = item.get("qa_skipped", False)
-        qa_score = item.get("qa_score")
+        grounding_pass = item.get("grounding_pass")
+        grounding_reason = item.get("grounding_reason") or ""
+        explanation_pass = item.get("explanation_pass")
+        explanation_reason = item.get("explanation_reason") or ""
 
-        if qa_skipped:
-            qa_str = "스킵"
-            detail = "<p style='color:#6b7280;'>⚠️ 코드/예측형 문항 → QA Grounding 스킵</p>"
-        else:
-            qa_str = f"{qa_score:.2f}" if qa_score is not None else "N/A"
-            errors_html = "".join(f"<li style='color:#ef4444;'>❌ {e}</li>" for e in errors_list)
-            warnings_html = "".join(f"<li style='color:#f59e0b;'>⚠️ {w}</li>" for w in warnings_list)
-            detail = f"<ul>{errors_html}{warnings_html}</ul>" if errors_html or warnings_html else "<p style='color:green;'>✅ 통과</p>"
+        def _eval_cell(passed, reason):
+            if passed is None:
+                return "<span style='color:#6b7280;'>N/A</span>"
+            icon = "✅" if passed else "❌"
+            color = "green" if passed else "#ef4444"
+            return f"<span style='color:{color};'>{icon} {reason}</span>"
+
+        errors_html = "".join(f"<li style='color:#ef4444;'>❌ {e}</li>" for e in errors_list)
+        warnings_html = "".join(f"<li style='color:#f59e0b;'>⚠️ {w}</li>" for w in warnings_list)
+        detail = f"<ul>{errors_html}{warnings_html}</ul>" if errors_html or warnings_html else "<p style='color:green;'>✅ 통과</p>"
 
         rows += f"""
         <tr>
             <td style="text-align:center;vertical-align:middle;font-weight:bold;">Q{i}</td>
-            <td style="width:300px;">
+            <td style="width:260px;">
                 <div style="font-size:0.85em;">
-                    <strong>[평가 대상: 문제+정답]</strong><br>
-                    <div style="background:#fefce8;padding:6px;border-radius:4px;margin-top:4px;border:1px solid #fef08a;">{grounding_qa_target}</div>
+                    <div style="background:#fefce8;padding:6px;border-radius:4px;border:1px solid #fef08a;">{grounding_qa_target}</div>
                 </div>
-                <div style="font-size:0.75em;color:#666;margin-top:8px;">ID: {quiz_id[:8]}... | Sources: {', '.join([sid[:8] for sid in source_chunk_ids])}</div>
+                <div style="font-size:0.75em;color:#666;margin-top:6px;">ID: {quiz_id[:8]}... | Sources: {', '.join([sid[:8] for sid in source_chunk_ids])}</div>
             </td>
             <td style="text-align:center;">{status}</td>
-            <td style="text-align:center;">{qa_str}</td>
+            <td style="font-size:0.85em;">{_eval_cell(grounding_pass, grounding_reason)}</td>
+            <td style="font-size:0.85em;">{_eval_cell(explanation_pass, explanation_reason)}</td>
             <td>
                 {sources_html}
                 {detail}
@@ -164,13 +167,9 @@ def _render_grounding(result: dict, quizzes: list[dict], sources: list[dict]) ->
 
     return f"""
     <div class="section">
-        <h3>2. Grounding (근거 정확성) {section_pass_badge}</h3>
-        <p style="font-size:0.85em;color:#666;margin-bottom:12px;">
-            ※ 점수 기준 - <b>비교형: {THRESHOLD_QA_COMPARISON}↑</b> (PASS/FAIL)<br>
-            ※ 점수 기준 - <b>일반 문항: {THRESHOLD_PASS}↑ PASS</b> | <b>{THRESHOLD_FAIL}~{THRESHOLD_PASS} WARN(사람 검토)</b> | <b>{THRESHOLD_FAIL}↓ FAIL</b>
-        </p>
+        <h3>2. Grounding + 해설 품질 {section_pass_badge}</h3>
         <table>
-            <thead><tr><th style="width:40px;">번호</th><th>문항 및 근거</th><th style="width:60px;">결과</th><th style="width:100px;">QA 점수</th><th>상세 및 근거 원문</th></tr></thead>
+            <thead><tr><th style="width:40px;">번호</th><th>문항 및 근거</th><th style="width:60px;">결과</th><th style="width:180px;">Grounding</th><th style="width:180px;">해설 품질</th><th>근거 원문</th></tr></thead>
             <tbody>{rows}</tbody>
         </table>
     </div>"""
