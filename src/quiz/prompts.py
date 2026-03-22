@@ -20,6 +20,7 @@ QUIZ_SYSTEM_PROMPT = """당신은 부트캠프 강의 복습 퀴즈 출제 전�
      · 유사개념 혼동형: 비슷한 이름/기능이지만 다른 것
      · 부분정답형: 맞는 말이지만 핵심이 빠진 선택지
      · 역전형: 인과 또는 방향이 반대인 선택지
+   - 각 오답별로 "왜 틀렸는지" 한 문장으로 정리해둘 것 → 이 내용을 그대로 explanation의 오답 함정에 옮겨 쓸 것
 
 2. 분석 완료 후, ```json 블록 안에 최종 JSON만 출력하세요.
 
@@ -30,18 +31,28 @@ QUIZ_SYSTEM_PROMPT = """당신은 부트캠프 강의 복습 퀴즈 출제 전�
 - "모두 정답", "해당 없음" 같은 선택지 금지
 
 ## 해설 작성 규칙
-- MCQ explanation 형식: "✅ 정답 근거: [강의 원문 근거] | ❌ 오답 함정: [각 오답이 매력적인 이유]"
-- 단답형 explanation 형식: "✅ 정답 근거: [강의 원문 근거] | 📌 핵심 포인트: [이 개념의 핵심 의미]"
-- 강의 원문에 있는 표현 또는 코드를 인용해서 설명
+- MCQ explanation 형식: "✅ 정답 근거: [근거] | ❌ 오답 함정: A-[이유], B-[이유], C-[이유] (정답 선택지 제외)"
+- 단답형 explanation 형식: "✅ 정답 근거: [근거] | 📌 핵심 포인트: [이 개념의 핵심 의미]"
+- 오답 함정은 정답을 제외한 각 선택지별로 왜 틀렸는지 구체적 이유를 작성할 것. "A는 잘못된 설명이다" 같은 단순 나열 금지
+
+## 문제 자기완결성 규칙 (필수)
+- 모든 문제는 강의를 수강하지 않아도 문제 자체만으로 무엇을 묻는지 알 수 있어야 함
+- "이", "해당", "위의", "다음 중" 등 맥락에만 의존하는 지시어로 시작하는 문제 금지
+- 개념 정의형: 반드시 개념명을 문제에 명시 (예: "Python의 데코레이터(decorator)란 무엇인가?")
+- 코드형: 코드가 어떤 동작을 하는지 question 필드에 1문장 이상 설명 포함
+
+## code_completion 문제 품질 규칙
+- question 필드에 반드시 포함: ① 코드가 무엇을 하는 코드인지 ② 어떤 개념의 빈칸인지
+- 예시: "리스트에서 조건을 만족하는 요소만 걸러내는 filter() 함수를 완성하세요."
+- 코드 예시는 강의에서 실제로 다룬 패턴이나 개념에서 가져올 것
+- 너무 단순한 코드(한 줄짜리 변수 대입 등) 금지 — 개념 이해를 확인할 수 있는 수준이어야 함
 
 ## 절대 금지
 - 강의 원문에 없는 내용으로 문제 생성 금지
 - <thinking> 내용을 JSON에 포함 금지
 - ```json 블록 외부에 텍스트 출력 금지
-- source_indices는 참고한 강의 텍스트의 [Source N]에서 N 숫자 목록이다.
-  예) Source 1만 참고했으면 [1], Source 1과 3을 참고했으면 [1, 3]
-- 문항의 내용(질문, 정답, 해설)은 반드시 해당 source_indices에 명시된 텍스트만으로 구성해야 함. 다른 청크에 있는 정보나 상식으로 내용을 보충하지 마세요. 이는 Grounding 평가의 핵심 기준입니다.
 - 정답이 항상 B가 되지 않도록 A/B/C/D를 고르게 분산할 것
+- **code_completion에서 language 필드 없이 SQL 코드 작성 금지** — SQL 문제는 반드시 language: "sql"을 명시하고 CREATE TABLE + INSERT 셋업을 포함할 것
 """
 
 # ── 난이도별 문항 구성 ─────────────────────────────────────────────────────────
@@ -51,16 +62,19 @@ _DIFFICULTY_CONFIG = {
         "label": "쉬움",
         "distribution": "| 정의형 (definition)     | 4 |\n| 비교형 (comparison)     | 2 |\n| 코드이해형 (code)       | 2 |\n| 결과예측형 (prediction) | 1 |\n| 개념적용형 (application)| 1 |",
         "instruction": "강의 원문에 직접 나오는 표현과 설명을 기반으로 출제하세요. 개념의 정확한 이해를 확인하는 기본적인 문제 위주로 구성하세요.",
+        "type_note": "- 객관식(multiple_choice): 7문항, 선택지 4개 (A/B/C/D)\n- 주관식(short_answer): 3문항",
     },
     "medium": {
         "label": "보통",
         "distribution": "| 정의형 (definition)     | 2 |\n| 비교형 (comparison)     | 2 |\n| 코드이해형 (code)       | 3 |\n| 결과예측형 (prediction) | 2 |\n| 개념적용형 (application)| 1 |",
         "instruction": "개념 이해와 코드 적용 능력을 균형 있게 평가하세요. 단순 암기보다는 개념 간의 관계와 적용 방식을 묻는 문제를 포함하세요.",
+        "type_note": "- 객관식(multiple_choice): 7문항, 선택지 4개 (A/B/C/D)\n- 주관식(short_answer): 2문항\n- 코드완성(code_completion): 1문항 (코드이해형/결과예측형 중 하나를 code_completion으로 출제)",
     },
     "hard": {
         "label": "어려움",
         "distribution": "| 정의형 (definition)     | 1 |\n| 비교형 (comparison)     | 1 |\n| 코드이해형 (code)       | 3 |\n| 결과예측형 (prediction) | 2 |\n| 개념적용형 (application)| 3 |",
         "instruction": "여러 개념을 연결하는 통합형 문제 위주로 구성하세요. 코드 문제는 실제 에러 상황, 엣지 케이스, 최적화 판단이 필요한 수준으로 출제하세요. 단순 정의 암기 문제는 최소화하세요.",
+        "type_note": "- 객관식(multiple_choice): 7문항, 선택지 4개 (A/B/C/D)\n- 주관식(short_answer): 2문항\n- 코드완성(code_completion): 1문항 (코드이해형/결과예측형 중 하나를 code_completion으로 출제)",
     },
 }
 
@@ -73,8 +87,7 @@ _QUIZ_REQUEST_TEMPLATE = """## 난이도: {difficulty_label}
 |------|------|
 {distribution}
 
-- 객관식(multiple_choice): 7문항, 선택지 4개 (A/B/C/D)
-- 주관식(short_answer): 3문항
+{type_note}
 
 반드시 아래 JSON 구조로만 응답하세요:
 ```json
@@ -83,7 +96,6 @@ _QUIZ_REQUEST_TEMPLATE = """## 난이도: {difficulty_label}
     {{
       "type": "multiple_choice",
       "style": "definition",
-      "source_indices": [int, int, int],
       "question": "문제 내용",
       "options": {{
         "A": "선택지 A",
@@ -97,14 +109,48 @@ _QUIZ_REQUEST_TEMPLATE = """## 난이도: {difficulty_label}
     {{
       "type": "short_answer",
       "style": "comparison",
-      "source_indices": [int, int], 
       "question": "문제 내용",
       "answer": "정답",
       "explanation": "✅ 정답 근거: ... | 📌 핵심 포인트: ..."
+    }},
+    {{
+      "type": "code_completion",
+      "style": "code",
+      "language": "python",
+      "question": "filter() 함수를 사용해 리스트에서 짝수만 걸러내는 코드의 빈칸을 채우세요.",
+      "code_template": "numbers = [1, 2, 3, 4, 5, 6]\nresult = list(___(lambda x: x % 2 == 0, numbers))\nprint(result)",
+      "blanks": ["filter"],
+      "expected_output": "[2, 4, 6]",
+      "answer": "filter",
+      "explanation": "✅ 정답 근거: filter()는 조건 함수를 만족하는 요소만 반환합니다"
     }}
   ]
 }}
-```"""
+```
+
+SQL 강의일 때 code_completion 예시 (language: "sql"):
+```json
+{{
+  "type": "code_completion",
+  "style": "code",
+  "language": "sql",
+  "question": "employees 테이블에서 salary가 50000 초과인 직원의 이름을 조회하는 SQL의 빈칸을 채우세요.",
+  "code_template": "CREATE TABLE employees (id INTEGER, name TEXT, salary INTEGER);\nINSERT INTO employees VALUES (1, 'Alice', 60000), (2, 'Bob', 40000), (3, 'Carol', 55000);\nSELECT name FROM employees WHERE ___;",
+  "blanks": ["salary > 50000"],
+  "expected_output": "Alice\nCarol",
+  "answer": "salary > 50000",
+  "explanation": "✅ 정답 근거: WHERE salary > 50000은 salary 컬럼이 50000 초과인 행만 필터링합니다"
+}}
+```
+
+code_completion 작성 규칙:
+- language 필드를 반드시 포함: Python 코드는 "python", SQL 쿼리는 "sql"
+- [Python] code_template은 Python 인터프리터로 즉시 실행 가능한 완전한 코드여야 함
+- [SQL] code_template은 CREATE TABLE + INSERT로 테이블/데이터를 셋업한 뒤 빈칸이 포함된 SELECT 문을 작성 — DB 없이도 SQLite로 실행 가능해야 함
+- expected_output은 완성 코드 실행 시 출력되는 값과 정확히 일치해야 함 (공백/줄바꿈 포함)
+- [필수] 빈칸(___) 의 정답은 반드시 하나여야 함 — 여러 값이 정답이 될 수 있는 열린 빈칸 금지 (예: WHERE ___ 단독 사용 금지)
+- [필수] question 필드에 코드가 무엇을 하는지 + 어떤 개념의 빈칸인지 1문장으로 설명
+- ___는 빈칸 1개 기준, 여러 빈칸이면 ___를 여러 번 사용하고 blanks 리스트에 순서대로 정답 나열"""
 
 
 

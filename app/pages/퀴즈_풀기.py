@@ -16,6 +16,7 @@ from src.ingestion.loader import load_lecture_topics
 from src.rag.pipeline import build_context_by_date, build_context_by_query
 from src.quiz.generator import generate_quiz_from_context, generate_quiz_multi_from_context
 from src.quiz.scoring import evaluate_short_answer
+from src.quiz.code_runner import fill_and_run
 
 st.set_page_config(page_title="퀴즈 풀기", page_icon="📝", layout="wide")
 st.title("📝 복습 퀴즈")
@@ -37,6 +38,7 @@ for key, default in [
     ("quiz_answers", {}),
     ("quiz_checked", {}),
     ("quiz_eval_results", {}),
+    ("quiz_code_run_details", {}),
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
@@ -121,6 +123,8 @@ def render_loading_view():
         st.session_state["quiz_idx"] = 0
         st.session_state["quiz_answers"] = {}
         st.session_state["quiz_checked"] = {}
+        st.session_state["quiz_eval_results"] = {}
+        st.session_state["quiz_code_run_details"] = {}
         st.session_state["quiz_result_cache"] = None  # 캐시 초기화
         st.session_state["view"] = "quiz"
         st.rerun()
@@ -166,8 +170,42 @@ def render_loading_view():
     st.session_state["quiz_idx"] = 0
     st.session_state["quiz_answers"] = {}
     st.session_state["quiz_checked"] = {}
+    st.session_state["quiz_eval_results"] = {}
+    st.session_state["quiz_code_run_details"] = {}
     st.session_state["view"] = "quiz"
     st.rerun()
+
+
+# ── code_completion 빈칸 입력 렌더링 ─────────────────────────
+def _render_code_completion_inputs(q: dict, idx: int, is_checked: bool) -> bool:
+    """code_completion 퀴즈의 코드 표시 및 빈칸 입력 위젯 렌더링.
+
+    Returns:
+        has_answer: 모든 빈칸이 채워졌는지 여부
+    """
+    code_template = q.get("code_template", "")
+    n_blanks = code_template.count("___")
+
+    lang = q.get("language", "python")
+    st.code(code_template, language=lang)
+
+    if n_blanks == 0:
+        st.warning("코드 템플릿에 빈칸(___)이 없습니다.")
+        return False
+
+    cols = st.columns(n_blanks) if n_blanks > 1 else [st]
+    for i, col in enumerate(cols):
+        col.text_input(
+            f"빈칸 {i + 1}",
+            key=f"code_blank_{idx}_{i}",
+            placeholder=f"빈칸 {i + 1}",
+            disabled=is_checked,
+        )
+
+    return all(
+        bool(st.session_state.get(f"code_blank_{idx}_{i}", "").strip())
+        for i in range(n_blanks)
+    )
 
 
 # ── 뷰 3: 문제 풀기 (1문제씩) ────────────────────────────────
@@ -212,9 +250,9 @@ def render_quiz_view():
         if chosen:
             st.session_state["quiz_answers"][idx] = chosen
         has_answer = bool(st.session_state["quiz_answers"].get(idx))
-    else:
+    elif q["type"] == "short_answer":
         current_text = st.session_state["quiz_answers"].get(idx, "")
-        typed = st.text_input(
+        typed: str = st.text_input(
             "답 입력",
             value=current_text,
             key=f"answer_{idx}",
@@ -224,35 +262,132 @@ def render_quiz_view():
         )
         st.session_state["quiz_answers"][idx] = typed
         has_answer = bool(typed.strip())
+    else:  # code_completion
+        typed = ""  # short_answer 이외 타입에서 typed 미정의 방지
+        has_answer = _render_code_completion_inputs(q, idx, is_checked)
 
     st.markdown("")
 
     # 확인 버튼 / 결과 표시
     if not is_checked:
-        if st.button("확인", disabled=not has_answer):
-            st.session_state["quiz_checked"][idx] = True
-            if q["type"] == "short_answer":
-                with st.spinner("답안 평가 중..."):
-                    result = evaluate_short_answer(
-                        question=q["question"],
-                        correct_answer=q["answer"],
-                        user_answer=typed,
-                        explanation=q["explanation"],
+        if q["type"] == "code_completion":
+            if st.button("▶ 실행 및 채점", disabled=not has_answer, key=f"run_{idx}"):
+                n_blanks = q["code_template"].count("___")
+                user_inputs = [
+                    st.session_state.get(f"code_blank_{idx}_{i}", "")
+                    for i in range(n_blanks)
+                ]
+                with st.spinner("코드 실행 중..."):
+                    run_result = fill_and_run(
+                        q["code_template"], user_inputs, q["expected_output"],
+                        language=q.get("language", "python"),
                     )
-                st.session_state["quiz_eval_results"][idx] = result
-            st.rerun()
+                st.session_state["quiz_eval_results"][idx] = run_result["is_correct"]
+                st.session_state["quiz_code_run_details"][idx] = run_result
+                st.session_state["quiz_checked"][idx] = True
+                st.rerun()
+        else:
+            if st.button("확인", disabled=not has_answer):
+                st.session_state["quiz_checked"][idx] = True
+                if q["type"] == "short_answer":
+                    with st.spinner("답안 평가 중..."):
+                        result = evaluate_short_answer(
+                            question=q["question"],
+                            correct_answer=q["answer"],
+                            user_answer=typed,
+                            explanation=q["explanation"],
+                        )
+                    st.session_state["quiz_eval_results"][idx] = result
+                st.rerun()
     else:
         user_ans = st.session_state["quiz_answers"].get(idx, "")
         correct_ans = q["answer"]
+        def _show_explanation(explanation: str):
+            """해설을 이모지 파트별 색상 카드로 렌더링."""
+            import re
+            parts = [p.strip() for p in explanation.split("|") if p.strip()]
+            for part in parts:
+                if part.startswith("✅"):
+                    bg, border, color = "#f0fdf4", "#86efac", "#166534"
+                    st.markdown(
+                        f'<div style="background:{bg};border:1px solid {border};border-radius:10px;'
+                        f'padding:14px 18px;margin-top:8px;font-size:0.88rem;color:{color};line-height:1.75;">'
+                        f'{part}</div>',
+                        unsafe_allow_html=True,
+                    )
+                elif part.startswith("❌"):
+                    bg, border = "#fff7f7", "#fca5a5"
+                    prefix_end = part.find(":") + 1
+                    prefix = part[:prefix_end]
+                    body = part[prefix_end:].strip()
+                    items = re.split(r",\s*(?=[A-D]-)", body)
+                    rows_html = "".join(
+                        f'<div style="display:flex;gap:8px;padding:5px 0;border-bottom:1px solid #fee2e2;">'
+                        f'<span style="font-weight:700;min-width:20px;">{item.split("-")[0].strip()}</span>'
+                        f'<span>{"−".join(item.split("-")[1:]).strip()}</span></div>'
+                        if "-" in item else
+                        f'<div style="padding:5px 0;border-bottom:1px solid #fee2e2;">{item.strip()}</div>'
+                        for item in items if item.strip()
+                    )
+                    st.markdown(
+                        f'<div style="background:{bg};border:1px solid {border};border-radius:10px;'
+                        f'padding:14px 18px;margin-top:8px;font-size:0.88rem;color:#7f1d1d;">'
+                        f'<div style="font-weight:600;margin-bottom:8px;">{prefix}</div>'
+                        f'{rows_html}</div>',
+                        unsafe_allow_html=True,
+                    )
+                elif part.startswith("📌"):
+                    bg, border, color = "#eff6ff", "#93c5fd", "#1e40af"
+                    st.markdown(
+                        f'<div style="background:{bg};border:1px solid {border};border-radius:10px;'
+                        f'padding:14px 18px;margin-top:8px;font-size:0.88rem;color:{color};line-height:1.75;">'
+                        f'{part}</div>',
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.markdown(
+                        f'<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;'
+                        f'padding:14px 18px;margin-top:8px;font-size:0.88rem;color:#374151;line-height:1.75;">'
+                        f'{part}</div>',
+                        unsafe_allow_html=True,
+                    )
+
         if q["type"] == "multiple_choice":
             is_correct = bool(user_ans and user_ans.startswith(correct_ans))
-        else:
+            if is_correct:
+                st.success("✅ 정답!")
+            else:
+                st.error(f"❌ 오답  |  정답: **{correct_ans}**")
+            _show_explanation(q["explanation"])
+        elif q["type"] == "code_completion":
+            run_details = st.session_state["quiz_code_run_details"].get(idx, {})
             is_correct = st.session_state["quiz_eval_results"].get(idx, False)
-
-        if is_correct:
-            st.success(f"✅ 정답! | 해설: {q['explanation']}")
-        else:
-            st.error(f"❌ 오답 | 정답: {correct_ans} | 해설: {q['explanation']}")
+            if run_details.get("stdout"):
+                st.code(run_details["stdout"], language="text")
+            if is_correct:
+                st.success("🎯 정답! 실행 결과가 일치합니다")
+            else:
+                stderr = run_details.get("stderr", "")
+                if stderr:
+                    st.error(f"❌ 실행 오류: {stderr}")
+                else:
+                    st.error(
+                        f"❌ 출력 불일치\n\n"
+                        f"기대값: `{q['expected_output']}`\n\n"
+                        f"실행 결과: `{run_details.get('stdout', '')}`"
+                    )
+            _show_explanation(q["explanation"])
+            st.caption(
+                f"⏱ 실행 시간: {run_details.get('exec_time', 'N/A')} "
+                f"| 상태: {run_details.get('status', '')}"
+            )
+        else:  # short_answer
+            is_correct = st.session_state["quiz_eval_results"].get(idx, False)
+            if is_correct:
+                st.success("✅ 정답!")
+            else:
+                st.error(f"❌ 오답  |  정답: **{correct_ans}**")
+            _show_explanation(q["explanation"])
 
     st.divider()
 
@@ -299,6 +434,7 @@ def render_quiz_view():
                 st.session_state["quiz_answers"] = {}
                 st.session_state["quiz_checked"] = {}
                 st.session_state["quiz_eval_results"] = {}
+                st.session_state["quiz_code_run_details"] = {}
                 st.rerun()
         with col_new:
             if st.button("✏️ 새 문제 생성", use_container_width=True):
@@ -308,6 +444,7 @@ def render_quiz_view():
                 st.session_state["quiz_answers"] = {}
                 st.session_state["quiz_checked"] = {}
                 st.session_state["quiz_eval_results"] = {}
+                st.session_state["quiz_code_run_details"] = {}
                 st.rerun()
 
 
