@@ -53,7 +53,7 @@ class QuizOptions(BaseModel):
 class QuizItem(BaseModel):
     type: Literal["multiple_choice", "short_answer"]
     style: Literal["definition", "comparison", "code", "prediction", "application"]
-    source_indices: list[int] = []
+    source_indices: list[int] = []  # LLM 반환값 (사용 안 함, 하위 호환 유지)
     chunk_id_valid: bool = False
     question: str
     options: Optional[QuizOptions] = None
@@ -91,16 +91,43 @@ def _extract_json(text: str) -> str:
 
     raise ValueError("LLM 응답에서 JSON 블록을 찾을 수 없습니다.")
 
-# chunk_id 검증 로직
-def _validate_chunk_ids(result: dict, retrieval_sources: list[dict]) -> dict:
+# BM25 기반 소스 청크 매칭
+def _match_sources_by_bm25(quiz: dict, retrieval_sources: list[dict], top_k: int = 2) -> list[dict]:
+    """
+    문제+정답 텍스트와 retrieval_sources를 BM25로 비교해 유사도 높은 청크 top_k개 반환.
+
+    Returns:
+        [{"chunk_id": str, "bm25_score": float}, ...] (점수 내림차순)
+    """
+    from src.quiz.evaluator.distractor import _tokenize, _build_bm25
+
+    question = quiz.get("question", "")
+    answer = quiz.get("answer", "")
+    quiz_type = quiz.get("type", "")
+    options = quiz.get("options", {})
+
+    answer_text = options.get(answer, answer) if quiz_type == "multiple_choice" else answer
+    query = f"{question} {answer_text}"
+
+    bm25, chunk_ids, _ = _build_bm25(retrieval_sources)
+    query_tokens = _tokenize(query)
+    scores = bm25.get_scores(query_tokens)
+
+    top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
+    return [
+        {"chunk_id": chunk_ids[i], "bm25_score": round(float(scores[i]), 4)}
+        for i in top_indices
+        if scores[i] > 0
+    ]
+
+
+def _apply_bm25_sources(result: dict, retrieval_sources: list[dict]) -> dict:
+    """각 문항에 BM25 매칭 결과를 source_chunk_ids / source_chunks_bm25 / chunk_id_valid로 저장."""
     for quiz in result["quizzes"]:
-        indices = quiz.get("source_indices", [])
-        chunk_ids = []
-        for idx in indices:
-            if 1 <= idx <= len(retrieval_sources):
-                chunk_ids.append(retrieval_sources[idx - 1]["chunk_id"])
-        quiz["source_chunk_ids"] = chunk_ids
-        quiz["chunk_id_valid"] = len(chunk_ids) > 0
+        matched = _match_sources_by_bm25(quiz, retrieval_sources, top_k=2)
+        quiz["source_chunks_bm25"] = matched
+        quiz["source_chunk_ids"] = [m["chunk_id"] for m in matched]
+        quiz["chunk_id_valid"] = len(matched) > 0
     return result
 
 def _save_quiz_log(record: dict) -> Path:
@@ -176,7 +203,7 @@ def generate_quiz_from_context(
     for quiz in result["quizzes"]:
         quiz["quiz_id"] = str(uuid4())
 
-    result = _validate_chunk_ids(result, ctx["retrieval_sources"])
+    result = _apply_bm25_sources(result, ctx["retrieval_sources"])
 
     record = {
         "quiz_set_id": str(uuid4()),
@@ -224,7 +251,7 @@ def generate_quiz_multi_from_context(
     for quiz in result["quizzes"]:
         quiz["quiz_id"] = str(uuid4())
         
-    result = _validate_chunk_ids(result, ctx["retrieval_sources"])
+    result = _apply_bm25_sources(result, ctx["retrieval_sources"])
 
     record = {
         "quiz_set_id": str(uuid4()),

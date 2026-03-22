@@ -17,8 +17,10 @@ QUIZ_EVAL_DIR: str = str(DATA_DIR / "logs" / "evaluations")
 QUIZ_REPORT_DIR: str = str(DATA_DIR / "logs" / "reports")
 
 OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 EMBEDDING_MODEL: str = "text-embedding-3-small"
 LLM_MODEL: str = "gpt-4o-mini"
+EVAL_MODEL: str = "models/gemini-2.5-flash-lite"
 
 COLLECTION_NAME: str = "lecture_chunks_refined"
 RETRIEVAL_K: int = 8
