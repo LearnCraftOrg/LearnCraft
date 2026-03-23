@@ -1,5 +1,6 @@
 """구조적 유효성 평가 - 퀴즈 세트 및 문항 단위 검증."""
 
+import re
 from typing import Any
 
 # ── 상수 ──────────────────────────────────────────────────────────────────────
@@ -75,6 +76,33 @@ def validate_quiz_item(quiz: dict) -> dict:
     explanation = quiz.get("explanation", "")
     if not explanation:
         errors.append("explanation 필드가 없거나 비어있음")
+    else:
+        # 1. 공통: 정답 근거 존재 여부 확인
+        if "✅ 정답 근거" not in explanation:
+            errors.append("해설 내 '✅ 정답 근거' 섹션 누락")
+
+        # 2. MCQ: 오답 함정 상세 존재 여부 확인
+        if quiz_type == "multiple_choice":
+            m = re.search(r"❌ 오답 함정:\s*(.*?)(?=\||✅|📌|$)", explanation, re.DOTALL)
+            if not m:
+                errors.append("해설 내 '❌ 오답 함정' 섹션 누락")
+            else:
+                distractor_text = m.group(1).strip()
+                distractor_reasons = {}
+                # A-이유, A는 이유, A: 이유 등 패턴 처리
+                for dm in re.finditer(r"\b([A-D])(?:[–\-]|는|:)\s*(.+?)(?=(?:,\s*)?[A-D](?:[–\-]|는|:)|$)", distractor_text, re.DOTALL):
+                    distractor_reasons[dm.group(1)] = dm.group(2).strip().rstrip(",").strip()
+                
+                # 정답을 제외한 모든 선택지에 대한 해설이 있는지 확인
+                options = quiz.get("options", {})
+                answer = quiz.get("answer", "")
+                missing_reasons = []
+                for k in options:
+                    if k != answer and k not in distractor_reasons:
+                        missing_reasons.append(k)
+                
+                if missing_reasons:
+                    errors.append(f"오답 해설 누락: {', '.join(missing_reasons)} (해설 내 '❌ 오답 함정' 섹션에 기재 필요)")
 
     # ── MCQ 추가 필드 ─────────────────────────────────────────────────────────
 
@@ -159,18 +187,28 @@ def validate_quiz_set(quiz_set: dict) -> dict:
                 f"유형 분포 오류 [{style}]: {actual_count}개 (기대: {expected_count}개)"
             )
 
+    # ── 정답 분포 검증 ────────────────────────────────────────────────────────
+    
+    answer_dist = {"A": 0, "B": 0, "C": 0, "D": 0}
+    for q in quizzes:
+        if q.get("type") == "multiple_choice":
+            ans = q.get("answer")
+            if ans in answer_dist:
+                answer_dist[ans] += 1
+    
+    for label, count in answer_dist.items():
+        if count >= 5:
+            set_errors.append(f"정답 분포 심각한 편중: '{label}'이 {count}회 등장 (7문항 중 5회 이상)")
+        elif count >= 4:
+            set_warnings.append(f"정답 분포 편중 주의: '{label}'이 {count}회 등장 (7문항 중 4회 이상)")
+
     # ── 문항 단위 검증 ────────────────────────────────────────────────────────
 
     item_results = [validate_quiz_item(q) for q in quizzes]
     failed_items = [r for r in item_results if not r["pass"]]
 
-    # 문항 단위 fail이 하나라도 있으면 세트 fail
-    if failed_items:
-        set_errors.append(
-            f"문항 단위 검증 실패: {len(failed_items)}개 문항 오류"
-        )
-
-    overall_pass = len(set_errors) == 0
+    # 세트 자체 에러와 문항 단위 에러 중 하나라도 있으면 세트 fail
+    overall_pass = (len(set_errors) == 0) and (len(failed_items) == 0)
 
     return {
         "quiz_set_id": quiz_set_id,
@@ -185,7 +223,7 @@ def validate_quiz_set(quiz_set: dict) -> dict:
 
 def print_report(result: dict) -> None:
     """검증 결과를 사람이 읽기 좋게 출력."""
-    status = "[PASS]" if result["pass"] else "[FAIL]"
+    status = "✅ PASS" if result["pass"] else "❌ FAIL"
     print(f"\n{'='*60}")
     print(f"퀴즈 세트: {result['quiz_set_id']}")
     print(f"결과: {status}")
@@ -193,21 +231,21 @@ def print_report(result: dict) -> None:
     if result["set_errors"]:
         print("\n[세트 오류]")
         for e in result["set_errors"]:
-            print(f"  [ERROR] {e}")
+            print(f"  ❌ {e}")
 
     if result["set_warnings"]:
         print("\n[세트 경고]")
         for w in result["set_warnings"]:
-            print(f"  [WARN] {w}")
+            print(f"  ⚠️  {w}")
 
     print("\n[문항별 결과]")
     for item in result["item_results"]:
-        item_status = "[OK]" if item["pass"] else "[FAIL]"
+        item_status = "✅" if item["pass"] else "❌"
         print(f"  {item_status} {item['quiz_id']}")
         for e in item["errors"]:
-            print(f"      [ERROR] {e}")
+            print(f"      ❌ {e}")
         for w in item["warnings"]:
-            print(f"      [WARN] {w}")
+            print(f"      ⚠️  {w}")
 
     print(f"{'='*60}\n")
 

@@ -108,7 +108,7 @@ if st.session_state.get("personalized_guide"):
 {chr(10).join(f"- {p}" for p in review_points)}
 """
     st.download_button(
-        label="Markdown으로 다운로드",
+        label="⬇ Markdown으로 다운로드",
         data=guide_md.encode("utf-8"),
         file_name=f"개인화_학습가이드_{'_'.join(used[:2])}.md",
         mime="text/markdown",

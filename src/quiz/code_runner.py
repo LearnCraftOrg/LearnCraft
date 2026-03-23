@@ -110,3 +110,41 @@ def fill_and_run(
             "is_correct": False,
             "exec_time": "N/A",
         }
+
+
+
+# ── 단독 실행 테스트 ──────────────────────────────────────────────────────────
+
+if __name__ == "__main__":
+    print("=== code_runner 테스트 ===\n")
+
+    template = (
+        "numbers = [1, 2, 3, 4, 5, 6]\n"
+        "result = list(___(lambda x: x % 2 == 0, numbers))\n"
+        "print(result)"
+    )
+    expected = "[2, 4, 6]"
+
+    # 케이스 1: 정답 입력 ("filter") → is_correct: True
+    print("[케이스 1] 정답 — 'filter'")
+    r1 = fill_and_run(template, ["filter"], expected)
+    print(f"  stdout    : {r1['stdout']!r}")
+    print(f"  stderr    : {r1['stderr']!r}")
+    print(f"  status    : {r1['status']}")
+    print(f"  is_correct: {r1['is_correct']}")
+    print(f"  exec_time : {r1['exec_time']}")
+    assert r1["is_correct"] is True, "케이스 1 실패"
+    print("  → PASS\n")
+
+    # 케이스 2: 오답 입력 ("map") → is_correct: False
+    print("[케이스 2] 오답 — 'map'")
+    r2 = fill_and_run(template, ["map"], expected)
+    print(f"  stdout    : {r2['stdout']!r}")
+    print(f"  stderr    : {r2['stderr']!r}")
+    print(f"  status    : {r2['status']}")
+    print(f"  is_correct: {r2['is_correct']}")
+    print(f"  exec_time : {r2['exec_time']}")
+    assert r2["is_correct"] is False, "케이스 2 실패"
+    print("  → PASS\n")
+
+    print("모든 테스트 통과 ✓")

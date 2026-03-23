@@ -117,7 +117,7 @@ def run_evaluation_from_file(quiz_json_path: str) -> dict:
     saved_path = save_eval_result(eval_result)
     save_report(eval_result, quiz_set)
 
-    print(f"평가 완료: {'[PASS]' if eval_result['overall_pass'] else '[FAIL]'}")
+    print(f"평가 완료: {'✅ PASS' if eval_result['overall_pass'] else '❌ FAIL'}")
     print(f"저장 위치: {saved_path}")
     if eval_result["fail_reasons"]:
         print(f"실패 원인: {', '.join(eval_result['fail_reasons'])}")

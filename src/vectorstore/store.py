@@ -46,3 +46,18 @@ def get_indexed_dates() -> list[str]:
         if meta and "date" in meta:
             dates.add(meta["date"])
     return sorted(dates)
+
+
+def get_stt_curriculum(date: str) -> dict:
+    """STT에서 추출된 커리큘럼 데이터를 ChromaDB 메타데이터에서 로드."""
+    vs = get_vectorstore()
+    result = vs.get(where={"$and": [{"date": date}, {"heading_level": 2}]}, limit=1)
+    if result["metadatas"]:
+        meta = result["metadatas"][0]
+        content = meta.get("content", "")
+        return {
+            "subject": content,
+            "content": content,
+            "learning_goal": meta.get("learning_goal", ""),
+        }
+    return {"subject": "", "content": "", "learning_goal": ""}
