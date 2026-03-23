@@ -7,7 +7,8 @@ from config.settings import OPENAI_API_KEY, EMBEDDING_MODEL
 
 # ── 상수 ──────────────────────────────────────────────────────────────────────
 
-THRESHOLD_DUPLICATE = 0.75  # 이 점수 이상이면 무조건 중복으로 간주
+THRESHOLD_DUPLICATE_FAIL = 0.85  # 확실한 중복 (FAIL)
+THRESHOLD_DUPLICATE_WARN = 0.75  # 유사함 (WARN - 사람 확인 필요)
 
 _client = None
 
@@ -86,10 +87,11 @@ def evaluate_duplicate_set(quiz_set: dict) -> dict:
             
         embed_texts.append(f"Question: {question_text}\nAnswer: {answer_text}")
         
-    embeddings = _embed_batch(embed_texts)
+        embeddings = _embed_batch(embed_texts)
 
     # 모든 문항 쌍 유사도 계산
     errors = []
+    warnings = []
     pair_results = []
 
     for i, j in combinations(range(len(quizzes)), 2):
@@ -105,8 +107,10 @@ def evaluate_duplicate_set(quiz_set: dict) -> dict:
         }
         pair_results.append(pair)
 
-        if similarity >= THRESHOLD_DUPLICATE:
+        if similarity >= THRESHOLD_DUPLICATE_FAIL:
             errors.append(pair)
+        elif similarity >= THRESHOLD_DUPLICATE_WARN:
+            warnings.append(pair)
 
     # 임베딩 텍스트 매핑 저장
     embed_map = {quiz_ids[i]: embed_texts[i] for i in range(len(quizzes))}
@@ -114,8 +118,8 @@ def evaluate_duplicate_set(quiz_set: dict) -> dict:
     return {
         "quiz_set_id": quiz_set_id,
         "pass": len(errors) == 0,
-        "warnings": [],
+        "warnings": warnings,
         "errors": errors,
         "pair_results": pair_results,
-        "embed_map": embed_map,   
+        "embed_map": embed_map,
     }
