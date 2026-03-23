@@ -10,8 +10,10 @@ RAG 체인을 활용해 일반 학습 가이드 및 개인화 학습 가이드�
 - 개인화 학습 가이드 생성: generate_personalized_study_guide(wrong_concepts)
 """
 
-from rag.study_guide_chain import build_study_guide_chain
-from quiz.quiz_analyzer import concepts_to_query
+from typing import Generator
+
+from src.rag.study_guide_chain import build_study_guide_chain
+from src.quiz.analyzer import concepts_to_query
 
 # RAG 체인 싱글턴 (최초 호출 시 초기화, 이후 재사용)
 _chain = None
@@ -95,3 +97,52 @@ def generate_personalized_study_guide(wrong_concepts: list[str]) -> str:
     # 변환된 쿼리로 학습 가이드 생성
     chain = _get_chain()
     return chain.invoke(query)
+
+
+def stream_study_guide(query: str) -> Generator:
+    """
+    강의 주제를 입력받아 RAG 기반 학습 가이드를 스트리밍 생성.
+
+    chain.invoke() 대신 chain.stream()을 사용하여 LLM 토큰이 생성되는 즉시
+    반환합니다. UI에서 st.write_stream()과 함께 사용하면 체감 로딩 시간을
+    크게 줄일 수 있습니다.
+
+    Args:
+        query: 학습 가이드를 생성할 강의 주제 또는 키워드
+
+    Yields:
+        LLM이 생성하는 텍스트 토큰 청크
+
+    Raises:
+        ValueError: 쿼리가 비어 있을 경우
+    """
+    if not query or not query.strip():
+        raise ValueError("쿼리가 비어 있습니다. 학습 주제를 입력하세요.")
+
+    chain = _get_chain()
+    return chain.stream(query.strip())
+
+
+def stream_personalized_study_guide(wrong_concepts: list[str]) -> Generator:
+    """
+    퀴즈 오답 개념 목록을 기반으로 개인화 학습 가이드를 스트리밍 생성.
+
+    chain.invoke() 대신 chain.stream()을 사용하여 LLM 토큰이 생성되는 즉시
+    반환합니다. UI에서 st.write_stream()과 함께 사용하면 체감 로딩 시간을
+    크게 줄일 수 있습니다.
+
+    Args:
+        wrong_concepts: 퀴즈에서 틀린 문항의 개념 키워드 목록
+
+    Yields:
+        LLM이 생성하는 텍스트 토큰 청크
+
+    Raises:
+        ValueError: 오답 개념 목록이 비어 있을 경우
+    """
+    if not wrong_concepts:
+        raise ValueError("오답 개념 목록이 비어 있습니다.")
+
+    query = concepts_to_query(wrong_concepts)
+    chain = _get_chain()
+    return chain.stream(query)

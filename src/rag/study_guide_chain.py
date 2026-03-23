@@ -18,8 +18,8 @@ from langchain_core.runnables import RunnablePassthrough
 from langchain_openai import ChatOpenAI
 
 from config.settings import LLM_MODEL, OPENAI_API_KEY
-from prompts.study_guide_prompt import get_study_guide_prompt
-from rag.retriever import get_retriever
+from src.guide.study_guide_prompt import get_study_guide_prompt
+from src.rag.study_guide_retriever import get_retriever
 
 # LLM 온도 설정 (낮을수록 사실 기반, 일관된 답변)
 TEMPERATURE: float = 0.3

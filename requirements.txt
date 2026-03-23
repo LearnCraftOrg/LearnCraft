@@ -12,3 +12,4 @@ tiktoken>=0.7.0
 rank-bm25>=0.2.2
 google-cloud-discoveryengine>=0.17.0
 kiwipiepy>=0.17.0
+requests>=2.31.0
