@@ -6,10 +6,24 @@ ROOT = Path(__file__).parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+import logging
 import re
 import time
 
 import streamlit as st
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%H:%M:%S",
+)
+# openai/_base_client.py calls model_dump(by_alias=None) at DEBUG level,
+# which breaks Pydantic 2.7+. Silence noisy third-party loggers.
+logging.getLogger("openai").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+
+logger = logging.getLogger(__name__)
 
 st.set_page_config(
     page_title="LearnCraft",
@@ -27,28 +41,33 @@ indexed_dates = get_indexed_dates()
 unindexed = [d for d in available_dates if d not in indexed_dates]
 
 if unindexed:
+    from concurrent.futures import ThreadPoolExecutor
+
+    def _index_date(date: str):
+        t0 = time.perf_counter()
+        text = load_script(date)
+        if text:
+            headings = re.findall(r'^## (.+)', text, re.MULTILINE)
+            meta = {
+                "subject": "",
+                "content": load_lecture_topics(date),
+                "learning_goal": " / ".join(headings),
+            }
+            logger.debug("[TIMING] %s load+meta: %.2fs", date, time.perf_counter()-t0)
+
+            t1 = time.perf_counter()
+            docs = chunk_text(text, {"date": date, **meta})
+            logger.debug("[TIMING] %s chunk: %.2fs", date, time.perf_counter()-t1)
+
+            t2 = time.perf_counter()
+            add_documents(docs)
+            logger.debug("[TIMING] %s add_documents: %.2fs", date, time.perf_counter()-t2)
+
     t_total = time.perf_counter()
     with st.spinner(f"강의 {len(unindexed)}개 자동 인덱싱 중..."):
-        for date in unindexed:
-            t0 = time.perf_counter()
-            text = load_script(date)
-            if text:
-                headings = re.findall(r'^## (.+)', text, re.MULTILINE)
-                meta = {
-                    "subject": "",
-                    "content": load_lecture_topics(date),
-                    "learning_goal": " / ".join(headings),
-                }
-                print(f"[TIMING] {date} load+meta: {time.perf_counter()-t0:.2f}s")
-
-                t1 = time.perf_counter()
-                docs = chunk_text(text, {"date": date, **meta})
-                print(f"[TIMING] {date} chunk: {time.perf_counter()-t1:.2f}s")
-
-                t2 = time.perf_counter()
-                add_documents(docs)
-                print(f"[TIMING] {date} add_documents: {time.perf_counter()-t2:.2f}s")
-    print(f"[TIMING] 전체 인덱싱: {time.perf_counter()-t_total:.2f}s")
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            list(executor.map(_index_date, unindexed))
+    logger.info("[TIMING] 전체 인덱싱: %.2fs", time.perf_counter()-t_total)
 
 st.title("📚 LearnCraft")
 st.subheader("강의 내용 기반 복습 퀴즈 & 학습 가이드 자동 생성")
