@@ -30,6 +30,7 @@ def get_quiz_request(difficulty: str = "medium") -> str:
         difficulty_label=cfg["label"],
         difficulty_instruction=cfg["instruction"],
         distribution=cfg["distribution"],
+        type_note=cfg["type_note"],
     )
 
 _client = None
@@ -51,7 +52,7 @@ class QuizOptions(BaseModel):
     D: str
 
 class QuizItem(BaseModel):
-    type: Literal["multiple_choice", "short_answer"]
+    type: Literal["multiple_choice", "short_answer", "code_completion"]
     style: Literal["definition", "comparison", "code", "prediction", "application"]
     source_indices: list[int] = []  # LLM 반환값 (사용 안 함, 하위 호환 유지)
     chunk_id_valid: bool = False
@@ -59,6 +60,11 @@ class QuizItem(BaseModel):
     options: Optional[QuizOptions] = None
     answer: str
     explanation: str
+    # code_completion 전용 필드
+    code_template: Optional[str] = None    # 빈칸(___)이 포함된 실행 가능한 전체 코드
+    blanks: Optional[list[str]] = None     # 정답 목록 (빈칸 순서와 일치)
+    expected_output: Optional[str] = None  # 정답 코드 실행 시 기대되는 stdout
+    language: Optional[str] = "python"     # 실행 언어: "python" | "sql"
 
     @model_validator(mode="after")
     def check_mcq(self) -> "QuizItem":
@@ -67,6 +73,13 @@ class QuizItem(BaseModel):
                 raise ValueError("multiple_choice requires options A/B/C/D")
             if self.answer not in ("A", "B", "C", "D"):
                 raise ValueError(f"answer must be A/B/C/D for MCQ, got '{self.answer}'")
+        elif self.type == "code_completion":
+            if not self.code_template:
+                raise ValueError("code_completion requires code_template")
+            if not self.blanks:
+                raise ValueError("code_completion requires blanks")
+            if not self.expected_output:
+                raise ValueError("code_completion requires expected_output")
         return self
 
 
