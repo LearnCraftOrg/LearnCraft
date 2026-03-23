@@ -1,9 +1,13 @@
 """의미적 중복 평가 - 세트 내 유사한 문항 탐지 (임베딩 기반)."""
 
+import logging
+import time
 import numpy as np
 from itertools import combinations
 from openai import OpenAI
 from config.settings import OPENAI_API_KEY, EMBEDDING_MODEL
+
+logger = logging.getLogger(__name__)
 
 # ── 상수 ──────────────────────────────────────────────────────────────────────
 
@@ -79,17 +83,20 @@ def evaluate_duplicate_set(quiz_set: dict) -> dict:
     for q in quizzes:
         question_text = q.get("question") or ""
         answer_text = q.get("answer") or ""
-        
+
         # 정답(answer)이 선택지(options)의 키(A, B, C...)인 경우 선택지 내용으로 치환
         options = q.get("options") or {}
         if answer_text in options:
             answer_text = options[answer_text]
-            
+
         embed_texts.append(f"Question: {question_text}\nAnswer: {answer_text}")
-        
-        embeddings = _embed_batch(embed_texts)
+
+    t_embed = time.perf_counter()
+    embeddings = _embed_batch(embed_texts)
+    logger.debug("[TIMING] duplicate 임베딩 (%d문항): %.2fs", len(embed_texts), time.perf_counter()-t_embed)
 
     # 모든 문항 쌍 유사도 계산
+    t_sim = time.perf_counter()
     errors = []
     warnings = []
     pair_results = []
@@ -111,6 +118,8 @@ def evaluate_duplicate_set(quiz_set: dict) -> dict:
             errors.append(pair)
         elif similarity >= THRESHOLD_DUPLICATE_WARN:
             warnings.append(pair)
+
+    logger.debug("[TIMING] duplicate 유사도 계산 (%d쌍): %.2fs", len(pair_results), time.perf_counter()-t_sim)
 
     # 임베딩 텍스트 매핑 저장
     embed_map = {quiz_ids[i]: embed_texts[i] for i in range(len(quizzes))}
