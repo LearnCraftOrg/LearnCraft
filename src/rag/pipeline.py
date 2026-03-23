@@ -1,6 +1,11 @@
 """강의 RAG 컨텍스트 구성 파이프라인."""
+import logging
+import time
+
 from src.vectorstore.store import get_stt_curriculum
 from src.rag.retriever import retrieve_by_date, retrieve_by_query
+
+logger = logging.getLogger(__name__)
 
 
 def build_context_by_date(date: str) -> dict:
@@ -15,9 +20,13 @@ def build_context_by_date(date: str) -> dict:
             "retrieval_sources": list,
         }
     """
+    t0 = time.perf_counter()
     curriculum = get_stt_curriculum(date)
+    logger.debug("[TIMING] RAG get_stt_curriculum(%s): %.2fs", date, time.perf_counter()-t0)
+
+    t1 = time.perf_counter()
     retrieved_docs = retrieve_by_date(date)
-    print(f"[LOG] build_context_by_date({date}): retrieve_by_date (no embedding)")
+    logger.debug("[TIMING] RAG retrieve_by_date(%s): %.2fs | %d개 청크", date, time.perf_counter()-t1, len(retrieved_docs))
 
     # LLM 프롬프트용 텍스트 구성 및 소스 메타데이터 보존
     formatted_context = ""
@@ -51,7 +60,9 @@ def build_context_by_query(dates: list[str], user_query: [str] = None) -> dict:
     Returns:
         {dates, curriculum_summary, lecture_context, query, retrieval_sources}
     """
+    t0 = time.perf_counter()
     curriculum_map = {d: get_stt_curriculum(d) for d in dates}
+    logger.debug("[TIMING] RAG get_stt_curriculum(dates=%s): %.2fs", dates, time.perf_counter()-t0)
     curriculum_summary = "\n".join(
         f"{d}: {curriculum_map[d].get('subject', '')} - {curriculum_map[d].get('content', '')}"
         for d in dates
@@ -65,8 +76,9 @@ def build_context_by_query(dates: list[str], user_query: [str] = None) -> dict:
     else:
         query = user_query or ""
 
+    t1 = time.perf_counter()
     retrieved_docs = retrieve_by_query(query, dates or None)
-    print(f"[LOG] build_context_by_query(dates={dates}): retrieve_by_query('{query[:40]}')")
+    logger.debug("[TIMING] RAG retrieve_by_query(dates=%s, query='%s'): %.2fs | %d개 청크", dates, query[:40], time.perf_counter()-t1, len(retrieved_docs))
     
     formatted_context = ""
     retrieval_sources = []
