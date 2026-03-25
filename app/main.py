@@ -10,6 +10,8 @@ import logging
 import re
 import time
 
+_t_start = time.perf_counter()
+
 import streamlit as st
 
 logging.basicConfig(
@@ -36,8 +38,14 @@ from src.ingestion.loader import get_available_dates, load_script, load_lecture_
 from src.ingestion.chunker import chunk_text
 from src.vectorstore.store import add_documents, get_indexed_dates
 
+t0 = time.perf_counter()
 available_dates = get_available_dates()
+logger.debug("[TIMING] get_available_dates: %.2fs", time.perf_counter() - t0)
+
+t0 = time.perf_counter()
 indexed_dates = get_indexed_dates()
+logger.debug("[TIMING] get_indexed_dates: %.2fs", time.perf_counter() - t0)
+
 unindexed = [d for d in available_dates if d not in indexed_dates]
 
 if unindexed:
@@ -68,6 +76,8 @@ if unindexed:
         with ThreadPoolExecutor(max_workers=4) as executor:
             list(executor.map(_index_date, unindexed))
     logger.info("[TIMING] 전체 인덱싱: %.2fs", time.perf_counter()-t_total)
+
+logger.info("[TIMING] 메인 화면 렌더링까지 총 소요: %.2fs", time.perf_counter() - _t_start)
 
 st.title("📚 LearnCraft")
 st.subheader("강의 내용 기반 복습 퀴즈 & 학습 가이드 자동 생성")
