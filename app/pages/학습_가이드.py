@@ -12,9 +12,11 @@ import streamlit as st
 
 from src.vectorstore.store import get_indexed_dates, get_stt_curriculum
 from src.guide.summarizer import generate_guide
+from app.styles import inject_global_css
 
 st.set_page_config(page_title="학습 가이드", page_icon="📖", layout="wide")
-st.title("📖 학습 가이드")
+inject_global_css()
+st.title("학습 가이드")
 
 indexed_dates = get_indexed_dates()
 
@@ -28,7 +30,7 @@ selected_date = st.selectbox("강의 날짜 선택", options=indexed_dates)
 info = get_stt_curriculum(selected_date)
 
 # 강의 정보
-with st.expander("📋 강의 정보", expanded=True):
+with st.expander("강의 정보", expanded=True):
     col1, col2 = st.columns(2)
     col1.markdown(f"**주제:** {info.get('subject', '-')}")
     col1.markdown(f"**내용:** {info.get('content', '-')}")
@@ -36,7 +38,7 @@ with st.expander("📋 강의 정보", expanded=True):
     col2.info(info.get("learning_goal", "-"))
 
 # 가이드 생성
-if st.button("📝 학습 가이드 생성", type="primary"):
+if st.button("학습 가이드 생성", type="primary"):
     with st.spinner("GPT-4o가 학습 가이드를 생성 중입니다..."):
         try:
             t0 = time.perf_counter()
@@ -54,7 +56,7 @@ if st.session_state.get("guide_data") and st.session_state.get("guide_date") == 
     st.divider()
 
     # 핵심 개념
-    st.subheader("🔑 핵심 개념")
+    st.subheader("핵심 개념")
     concepts = guide.get("key_concepts", [])
     if concepts:
         cols = st.columns(min(len(concepts), 3))
@@ -68,7 +70,7 @@ if st.session_state.get("guide_data") and st.session_state.get("guide_date") == 
     st.divider()
 
     # 핵심 요약
-    st.subheader("📌 핵심 요약")
+    st.subheader("핵심 요약")
     summary = guide.get("summary", "")
     if summary:
         st.markdown(summary)
@@ -78,7 +80,7 @@ if st.session_state.get("guide_data") and st.session_state.get("guide_date") == 
     st.divider()
 
     # 복습 포인트
-    st.subheader("✅ 복습 포인트")
+    st.subheader("복습 포인트")
     review_points = guide.get("review_points", [])
     if review_points:
         for point in review_points:
@@ -105,7 +107,7 @@ if st.session_state.get("guide_data") and st.session_state.get("guide_date") == 
 {chr(10).join(f"- {p}" for p in review_points)}
 """
     st.download_button(
-        label="⬇ Markdown으로 다운로드",
+        label="Markdown으로 다운로드",
         data=guide_md.encode("utf-8"),
         file_name=f"{selected_date}_학습가이드.md",
         mime="text/markdown",

@@ -9,10 +9,12 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from config.settings import QUIZ_REPORT_DIR
+from app.styles import inject_global_css
 
 st.set_page_config(page_title="LearnCraft - 품질 보고서", page_icon="📊", layout="wide")
+inject_global_css()
 
-st.title("📊 퀴즈 품질 평가 보고서")
+st.title("퀴즈 품질 평가 보고서")
 st.markdown("생성된 퀴즈의 구조, Grounding, 오답 품질, 중복 여부 평가 결과를 확인합니다.")
 
 # 보고서 디렉토리 확인
