@@ -279,7 +279,7 @@ def render_quiz_view():
                 ]
                 with st.spinner("코드 실행 중..."):
                     run_result = fill_and_run(
-                        q["code_template"], user_inputs, q["expected_output"],
+                        q["code_template"], user_inputs, q.get("expected_output") or "",
                         language=q.get("language", "python"),
                     )
                 st.session_state["quiz_eval_results"][idx] = run_result["is_correct"]
