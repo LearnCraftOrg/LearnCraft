@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
-import os
+import time
 from pathlib import Path
 from uuid import uuid4
 from datetime import datetime, timezone
@@ -19,6 +20,8 @@ from src.quiz.prompts import (
     _DIFFICULTY_CONFIG, _QUIZ_REQUEST_TEMPLATE,
 )
 from src.rag.pipeline import build_context_by_date, build_context_by_query
+
+logger = logging.getLogger(__name__)
 
 DifficultyLevel = Literal["easy", "medium", "hard"]
 
@@ -78,8 +81,7 @@ class QuizItem(BaseModel):
                 raise ValueError("code_completion requires code_template")
             if not self.blanks:
                 raise ValueError("code_completion requires blanks")
-            if not self.expected_output:
-                raise ValueError("code_completion requires expected_output")
+            # expected_output이 없으면 코드 실행으로 자동 생성 (아래 _fill_missing_expected_output)
         return self
 
 
@@ -159,12 +161,14 @@ def _call_and_validate(messages: list[dict], max_retries: int = 2) -> dict:
     current_messages = messages
     last_raw = ""
     for attempt in range(max_retries):
+        t_llm = time.perf_counter()
         response = _get_client().chat.completions.create(
             model=LLM_MODEL,
             messages=current_messages,
             temperature=0.7,
-            max_tokens=4096,
+            max_tokens=8192,
         )
+        logger.debug("[TIMING] 퀴즈 LLM 호출 (attempt %d): %.2fs", attempt+1, time.perf_counter()-t_llm)
         last_raw = response.choices[0].message.content
         try:
             json_str = _extract_json(last_raw)
@@ -181,6 +185,7 @@ def _call_and_validate(messages: list[dict], max_retries: int = 2) -> dict:
                     "role": "user",
                     "content": (
                         f"JSON 파싱/검증 오류가 발생했습니다: {e}\n"
+                        "응답이 너무 길어 중간에 잘렸을 수 있습니다. "
                         "올바른 JSON 형식으로 처음부터 다시 출력하세요. "
                         "```json 블록 외에 어떤 텍스트도 포함하지 마세요."
                     ),
@@ -197,6 +202,7 @@ def generate_quiz_from_context(
     """build_context_by_date() 결과를 받아 LLM 호출만 수행."""
     if not ctx.get("lecture_context", "").strip():
         raise ValueError(f"{ctx.get('date', '알 수 없는 날짜')}의 강의 데이터를 찾을 수 없습니다.")
+    t_total = time.perf_counter()
     curriculum = ctx["curriculum"]
     date = ctx["date"]
     user_prompt = QUIZ_USER_PROMPT.format(
@@ -216,7 +222,9 @@ def generate_quiz_from_context(
     for quiz in result["quizzes"]:
         quiz["quiz_id"] = str(uuid4())
 
+    t_bm25 = time.perf_counter()
     result = _apply_bm25_sources(result, ctx["retrieval_sources"])
+    logger.debug("[TIMING] 퀴즈 BM25 소스 매칭: %.2fs", time.perf_counter()-t_bm25)
 
     record = {
         "quiz_set_id": str(uuid4()),
@@ -228,13 +236,18 @@ def generate_quiz_from_context(
     }
     
     log_path = _save_quiz_log(record)
-    
-    # 자동 품질 평가 실행 (리포트 생성 포함)
-    try:
-        from src.quiz.evaluator.runner import run_evaluation_from_file
-        run_evaluation_from_file(str(log_path))
-    except Exception as e:
-        print(f"⚠️ 자동 평가 실패: {e}")
+    logger.info("[TIMING] 퀴즈 생성 전체 (date=%s): %.2fs | %d문항", date, time.perf_counter()-t_total, len(result['quizzes']))
+
+    # 자동 품질 평가 실행 (백그라운드 — 퀴즈 즉시 반환)
+    import threading
+    def _run_eval():
+        try:
+            from src.quiz.evaluator.runner import run_evaluation_from_file
+            run_evaluation_from_file(str(log_path))
+        except Exception as e:
+            logger.warning("자동 평가 실패: %s", e)
+    threading.Thread(target=_run_eval, daemon=True).start()
+
     return record
 
 
@@ -246,6 +259,7 @@ def generate_quiz_multi_from_context(
     """build_context_by_query() 결과를 받아 LLM 호출만 수행."""
     if not ctx.get("lecture_context", "").strip():
         raise ValueError("검색 조건에 해당하는 강의 데이터를 찾을 수 없습니다.")
+    t_total = time.perf_counter()
     user_query_section = ""
     if user_query and user_query.strip():
         user_query_section = f"## 문제 생성 요청\n{user_query.strip()}\n"
@@ -259,12 +273,14 @@ def generate_quiz_multi_from_context(
         {"role": "system", "content": QUIZ_SYSTEM_PROMPT},
         {"role": "user", "content": user_prompt},
     ])
-    
+
     # 각 문항에 고유 ID 부여
     for quiz in result["quizzes"]:
         quiz["quiz_id"] = str(uuid4())
-        
+
+    t_bm25 = time.perf_counter()
     result = _apply_bm25_sources(result, ctx["retrieval_sources"])
+    logger.debug("[TIMING] 퀴즈(multi) BM25 소스 매칭: %.2fs", time.perf_counter()-t_bm25)
 
     record = {
         "quiz_set_id": str(uuid4()),
@@ -275,13 +291,18 @@ def generate_quiz_multi_from_context(
     }
     
     log_path = _save_quiz_log(record)
-    
-    # 자동 품질 평가 실행 (리포트 생성 포함)
-    try:
-        from src.quiz.evaluator.runner import run_evaluation_from_file
-        run_evaluation_from_file(str(log_path))
-    except Exception as e:
-        print(f"⚠️ 자동 평가 실패: {e}")
+    logger.info("[TIMING] 퀴즈(multi) 생성 전체: %.2fs | %d문항", time.perf_counter()-t_total, len(result['quizzes']))
+
+    # 자동 품질 평가 실행 (백그라운드 — 퀴즈 즉시 반환)
+    import threading
+    def _run_eval():
+        try:
+            from src.quiz.evaluator.runner import run_evaluation_from_file
+            run_evaluation_from_file(str(log_path))
+        except Exception as e:
+            logger.warning("자동 평가 실패: %s", e)
+    threading.Thread(target=_run_eval, daemon=True).start()
+
     return record
 
 
