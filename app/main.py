@@ -19,7 +19,8 @@ import streamlit as st
 
 from config.settings import OPENAI_API_KEY, LLM_MODEL
 from src.vectorstore.store import get_indexed_dates, add_documents
-from src.ingestion.loader import get_available_dates, load_script, extract_stt_metadata, load_curriculum
+import re as _re
+from src.ingestion.loader import get_available_dates, load_script, load_lecture_topics
 from src.ingestion.chunker import chunk_text
 from src.rag.pipeline import build_context_by_date, build_context_by_query
 from src.quiz.generator import generate_quiz_from_context, generate_quiz_multi_from_context
@@ -59,7 +60,12 @@ def _auto_index():
     for date in unindexed:
         text = load_script(date)
         if text:
-            meta = extract_stt_metadata(date)
+            headings = _re.findall(r'^## (.+)', text, _re.MULTILINE)
+            meta = {
+                "subject": "",
+                "content": load_lecture_topics(date),
+                "learning_goal": " / ".join(headings),
+            }
             docs = chunk_text(text, {"date": date, **meta})
             add_documents(docs)
     return True
@@ -109,8 +115,7 @@ def _render_quiz_selection(indexed_dates: list[str]) -> None:
     # 강의 목록
     options = []
     for date in indexed_dates:
-        meta = extract_stt_metadata(date)
-        topic = meta["content"][:40] if meta.get("content") else ""
+        topic = load_lecture_topics(date)[:40]
         options.append(f"{date}  {topic}" if topic else date)
 
     date_map = {opt: date for opt, date in zip(options, indexed_dates)}
@@ -397,8 +402,7 @@ def render_guide_tab(indexed_dates: list[str]) -> None:
     date_label_map = {}
     date_topic_map = {}
     for d in indexed_dates:
-        meta = extract_stt_metadata(d)
-        topic = meta.get("content", "")[:40] if meta.get("content") else ""
+        topic = load_lecture_topics(d)[:40]
         date_label_map[d] = f"{d}  {topic}" if topic else d
         date_topic_map[d] = topic
 
@@ -480,13 +484,11 @@ def render_personalized_tab() -> None:
         st.info("복습 퀴즈를 완료하면 여기에 강의 목록이 표시됩니다.")
         return
 
-    # 커리큘럼 로드 → 날짜별 라벨 구성
-    curriculum_map = load_curriculum()
+    # 날짜별 라벨 구성
     date_label_map = {}
     for d in quiz_dates:
-        curr = curriculum_map.get(d, {})
-        subject = curr.get("subject", "")
-        date_label_map[d] = f"{d}  {subject}" if subject else d
+        topic = load_lecture_topics(d)[:40]
+        date_label_map[d] = f"{d}  {topic}" if topic else d
 
     # 강의 선택 (기본: 전체 선택)
     if "personalized_date_pending" in st.session_state:
