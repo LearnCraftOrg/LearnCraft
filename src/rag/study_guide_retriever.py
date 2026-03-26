@@ -11,10 +11,10 @@ from langchain_core.documents import Document
 from langchain_core.runnables import RunnableLambda
 from langchain_openai import OpenAIEmbeddings
 
-from config.settings import COLLECTION_NAME, EMBEDDING_MODEL, OPENAI_API_KEY
+from config.settings import COLLECTION_NAME, EMBEDDING_MODEL, OPENAI_API_KEY, CHROMA_DIR
 
-# ChromaDB 저장 경로 (프로젝트 루트 기준)
-CHROMA_PATH: str = "./chroma_db"
+# ChromaDB 저장 경로
+CHROMA_PATH: str = str(CHROMA_DIR)
 
 # 유사도 검색 결과 수 (spec 요구사항: k=5)
 RETRIEVAL_K: int = 5
