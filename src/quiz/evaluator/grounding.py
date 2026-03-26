@@ -1,10 +1,14 @@
 """GPT-4o 기반 Grounding(할루시네이션) + 해설 품질 평가."""
 
 import json
+import logging
 import re
+import time
 
 from openai import OpenAI
 from config.settings import GEMINI_API_KEY, EVAL_MODEL
+
+logger = logging.getLogger(__name__)
 
 _client = None
 
@@ -137,6 +141,7 @@ def evaluate_grounding(quiz: dict, retrieval_sources: list[dict]) -> dict:
     )
 
     try:
+        t_llm = time.perf_counter()
         response = _get_client().chat.completions.create(
             model=EVAL_MODEL,
             messages=[
@@ -146,6 +151,7 @@ def evaluate_grounding(quiz: dict, retrieval_sources: list[dict]) -> dict:
             temperature=0,
             max_tokens=512,
         )
+        logger.debug("[TIMING] grounding LLM 평가 (quiz_id=%s): %.2fs", quiz_id, time.perf_counter()-t_llm)
         raw = response.choices[0].message.content
         match = re.search(r"```json\s*(.*?)\s*```", raw, re.DOTALL)
         result = json.loads(match.group(1) if match else raw)
@@ -205,8 +211,13 @@ def evaluate_grounding_set(quiz_set: dict) -> dict:
     quizzes = quiz_set.get("quizzes", [])
     retrieval_sources = quiz_set.get("retrieval_sources", [])
 
-    item_results = [evaluate_grounding(quiz, retrieval_sources) for quiz in quizzes]
+    t_set = time.perf_counter()
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        futures = [executor.submit(evaluate_grounding, quiz, retrieval_sources) for quiz in quizzes]
+        item_results = [f.result() for f in futures]
     failed = [r for r in item_results if not r["pass"]]
+    logger.debug("[TIMING] grounding 세트 전체 (%d문항, 병렬): %.2fs", len(quizzes), time.perf_counter()-t_set)
 
     return {
         "quiz_set_id": quiz_set_id,
