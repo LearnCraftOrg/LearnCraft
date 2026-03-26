@@ -35,6 +35,7 @@ _EVAL_USER = """아래 강의 청크를 근거 자료로 삼아 퀴즈 문항을
 {source_context}
 
 ## 퀴즈 문항
+- 문항 타입: {quiz_type}
 - 유형: {style}
 - 문제: {question}
 - 정답: {answer_text}
@@ -49,13 +50,17 @@ _EVAL_USER = """아래 강의 청크를 근거 자료로 삼아 퀴즈 문항을
 - FAIL: 강의 청크에 없는 외부 개념이나 사실을 사용함
 
 ### 2. 해설 품질
-정답 근거가 강의 청크 내용과 일치하는가? 객관식의 경우 오답 함정이 각 선택지별로 구체적 이유를 설명하는가?
-- PASS: 각 오답이 "실제로 무엇인지" / "왜 이 문제에 맞지 않는지"까지 설명함
+정답 근거가 강의 청크 내용과 일치하는가?
+
+**객관식(multiple_choice)인 경우에만** 오답 함정도 평가한다:
+- PASS: ✅ 정답 근거가 강의 청크와 일치하고, 각 오답이 "실제로 무엇인지" / "왜 이 문제에 맞지 않는지"까지 설명함
 - FAIL 조건 (하나라도 해당하면 FAIL):
   · "A는 잘못됐다", "C는 관련이 없다", "D는 다른 기능이다" 처럼 틀렸다는 결론만 말하고 실제 개념 설명이 없음
   · 오답이 실제로 무엇을 의미하는지 설명하지 않음
   · 여러 선택지를 묶어서 "A, C, D는 관련이 없다"처럼 처리
   · 정답 근거가 강의 청크 내용과 다르거나 지나치게 추상적
+
+**주관식(short_answer) 또는 코드완성(code_completion)인 경우**: 오답 선택지가 없으므로 오답 함정은 평가하지 않는다. ✅ 정답 근거가 강의 청크 내용과 일치하면 PASS.
 
 반드시 아래 JSON 구조로만 응답하세요:
 ```json
@@ -133,6 +138,7 @@ def evaluate_grounding(quiz: dict, retrieval_sources: list[dict]) -> dict:
 
     user_prompt = _EVAL_USER.format(
         source_context=source_context,
+        quiz_type=quiz_type,
         style=style,
         question=question,
         answer_text=answer_text,

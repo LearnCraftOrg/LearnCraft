@@ -5,7 +5,7 @@ from typing import Any
 
 # ── 상수 ──────────────────────────────────────────────────────────────────────
 
-VALID_TYPES = {"multiple_choice", "short_answer"}
+VALID_TYPES = {"multiple_choice", "short_answer", "code_completion"}
 VALID_STYLES = {"definition", "comparison", "code", "prediction", "application"}
 VALID_ANSWER_OPTIONS = {"A", "B", "C", "D"}
 
@@ -15,9 +15,16 @@ STYLE_DISTRIBUTION = {
     "hard":   {"definition": 1, "comparison": 1, "code": 3, "prediction": 2, "application": 3},
 }
 
-TOTAL_QUESTIONS = 10
-MCQ_COUNT = 7
-SHORT_ANSWER_COUNT = 3
+# 난이도별 문항 수 기대값 (기준: 10문항)
+TYPE_COUNTS = {
+    "easy":   {"multiple_choice": 7, "short_answer": 3, "code_completion": 0},
+    "medium": {"multiple_choice": 7, "short_answer": 2, "code_completion": 1},
+    "hard":   {"multiple_choice": 7, "short_answer": 2, "code_completion": 1},
+}
+
+# 허용 문항 수 범위
+MIN_QUESTIONS = 8
+MAX_QUESTIONS = 11
 
 
 # ── 문항 단위 검증 ─────────────────────────────────────────────────────────────
@@ -154,24 +161,38 @@ def validate_quiz_set(quiz_set: dict) -> dict:
 
     # ── 총 문항 수 ────────────────────────────────────────────────────────────
 
-    if len(quizzes) != TOTAL_QUESTIONS:
+    total = len(quizzes)
+    if not (MIN_QUESTIONS <= total <= MAX_QUESTIONS):
         set_errors.append(
-            f"총 문항 수 오류: {len(quizzes)}문항 (기대: {TOTAL_QUESTIONS}문항)"
+            f"총 문항 수 오류: {total}문항 (허용 범위: {MIN_QUESTIONS}~{MAX_QUESTIONS}문항)"
         )
 
-    # ── MCQ / 단답형 수 ───────────────────────────────────────────────────────
+    # ── MCQ / 단답형 / 코드완성 수 (비율 기반, ±1 허용) ─────────────────────
 
-    mcq_count = sum(1 for q in quizzes if q.get("type") == "multiple_choice")
-    sa_count = sum(1 for q in quizzes if q.get("type") == "short_answer")
+    counts: dict[str, int] = {"multiple_choice": 0, "short_answer": 0, "code_completion": 0}
+    for q in quizzes:
+        q_type = q.get("type", "")
+        if q_type in counts:
+            counts[q_type] += 1
+    mcq_count = counts["multiple_choice"]
+    sa_count = counts["short_answer"]
+    cc_count = counts["code_completion"]
 
-    if mcq_count != MCQ_COUNT:
-        set_errors.append(f"MCQ 수 오류: {mcq_count}문항 (기대: {MCQ_COUNT}문항)")
-    if sa_count != SHORT_ANSWER_COUNT:
-        set_errors.append(
-            f"단답형 수 오류: {sa_count}문항 (기대: {SHORT_ANSWER_COUNT}문항)"
-        )
+    # MCQ: 총 문항의 60~80% 사이여야 함
+    mcq_min = max(1, round(total * 0.6))
+    mcq_max = round(total * 0.8)
+    if not (mcq_min <= mcq_count <= mcq_max):
+        set_errors.append(f"MCQ 수 오류: {mcq_count}문항 (기대 범위: {mcq_min}~{mcq_max}문항)")
 
-    # ── 유형 분포 검증 ────────────────────────────────────────────────────────
+    # code_completion: easy는 0개, medium/hard는 0~1개
+    if difficulty == "easy":
+        if cc_count > 0:
+            set_errors.append(f"코드완성 수 오류: easy 난이도에서 {cc_count}개 (기대: 0개)")
+    else:
+        if cc_count > 1:
+            set_errors.append(f"코드완성 수 오류: {cc_count}개 (기대: 최대 1개)")
+
+    # ── 유형 분포 검증 (±1 허용) ─────────────────────────────────────────────
 
     expected_dist = STYLE_DISTRIBUTION.get(difficulty, STYLE_DISTRIBUTION["medium"])
     actual_dist: dict[str, int] = {style: 0 for style in VALID_STYLES}
@@ -182,25 +203,27 @@ def validate_quiz_set(quiz_set: dict) -> dict:
 
     for style, expected_count in expected_dist.items():
         actual_count = actual_dist[style]
-        if actual_count != expected_count:
+        if abs(actual_count - expected_count) > 1:
             set_errors.append(
-                f"유형 분포 오류 [{style}]: {actual_count}개 (기대: {expected_count}개)"
+                f"유형 분포 오류 [{style}]: {actual_count}개 (기대: {expected_count}개, ±1 허용)"
             )
 
     # ── 정답 분포 검증 ────────────────────────────────────────────────────────
-    
+
     answer_dist = {"A": 0, "B": 0, "C": 0, "D": 0}
     for q in quizzes:
         if q.get("type") == "multiple_choice":
             ans = q.get("answer")
             if ans in answer_dist:
                 answer_dist[ans] += 1
-    
-    for label, count in answer_dist.items():
-        if count >= 5:
-            set_errors.append(f"정답 분포 심각한 편중: '{label}'이 {count}회 등장 (7문항 중 5회 이상)")
-        elif count >= 4:
-            set_warnings.append(f"정답 분포 편중 주의: '{label}'이 {count}회 등장 (7문항 중 4회 이상)")
+
+    bias_threshold_error = max(5, round(mcq_count * 0.7))
+    bias_threshold_warn = max(4, round(mcq_count * 0.55))
+    for label, cnt in answer_dist.items():
+        if cnt >= bias_threshold_error:
+            set_errors.append(f"정답 분포 심각한 편중: '{label}'이 {cnt}회 등장 ({mcq_count}문항 중 {bias_threshold_error}회 이상)")
+        elif cnt >= bias_threshold_warn:
+            set_warnings.append(f"정답 분포 편중 주의: '{label}'이 {cnt}회 등장 ({mcq_count}문항 중 {bias_threshold_warn}회 이상)")
 
     # ── 문항 단위 검증 ────────────────────────────────────────────────────────
 

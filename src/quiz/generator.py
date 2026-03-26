@@ -136,6 +136,26 @@ def _match_sources_by_bm25(quiz: dict, retrieval_sources: list[dict], top_k: int
     ]
 
 
+def _shuffle_mcq_options(result: dict) -> dict:
+    """MCQ 선택지 순서를 랜덤 셔플해 정답 편중을 제거."""
+    import random
+    for quiz in result["quizzes"]:
+        if quiz.get("type") != "multiple_choice":
+            continue
+        options = quiz.get("options", {})
+        answer = quiz.get("answer", "")
+        if not options or answer not in options:
+            continue
+        correct_text = options[answer]
+        keys = list("ABCD")
+        values = [options[k] for k in keys]
+        random.shuffle(values)
+        quiz["options"] = dict(zip(keys, values))
+        # 정답 키를 새 위치로 업데이트
+        quiz["answer"] = keys[values.index(correct_text)]
+    return result
+
+
 def _apply_bm25_sources(result: dict, retrieval_sources: list[dict]) -> dict:
     """각 문항에 BM25 매칭 결과를 source_chunk_ids / source_chunks_bm25 / chunk_id_valid로 저장."""
     for quiz in result["quizzes"]:
@@ -166,7 +186,7 @@ def _call_and_validate(messages: list[dict], max_retries: int = 2) -> dict:
             model=LLM_MODEL,
             messages=current_messages,
             temperature=0.7,
-            max_tokens=8192,
+            max_tokens=16000,
         )
         logger.debug("[TIMING] 퀴즈 LLM 호출 (attempt %d): %.2fs", attempt+1, time.perf_counter()-t_llm)
         last_raw = response.choices[0].message.content
@@ -223,6 +243,7 @@ def generate_quiz_from_context(
         quiz["quiz_id"] = str(uuid4())
 
     t_bm25 = time.perf_counter()
+    result = _shuffle_mcq_options(result)
     result = _apply_bm25_sources(result, ctx["retrieval_sources"])
     logger.debug("[TIMING] 퀴즈 BM25 소스 매칭: %.2fs", time.perf_counter()-t_bm25)
 
@@ -279,6 +300,7 @@ def generate_quiz_multi_from_context(
         quiz["quiz_id"] = str(uuid4())
 
     t_bm25 = time.perf_counter()
+    result = _shuffle_mcq_options(result)
     result = _apply_bm25_sources(result, ctx["retrieval_sources"])
     logger.debug("[TIMING] 퀴즈(multi) BM25 소스 매칭: %.2fs", time.perf_counter()-t_bm25)
 
