@@ -2,10 +2,12 @@
 
 ## 앱 실행
 
+터미널에서 프로젝트 루트에서 실행:
+
 ```bash
-# Streamlit 앱 실행 (streamlit 명령어가 PATH에 없을 경우)
-python -m streamlit run app/main.py
+python -m uvicorn api:app --host 127.0.0.1 --port 8000
 ```
+
 ## 환경 변수
 
 ```
@@ -31,3 +33,4 @@ python src/quiz/evaluator/report.py
 # 특정 평가 JSON 파일 하나만 리포트로 변환
 python src/quiz/evaluator/report.py data/logs/evaluations/eval_xxx.json
 ```
+
