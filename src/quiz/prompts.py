@@ -155,6 +155,8 @@ SQL 강의일 때 code_completion 예시 (language: "sql"):
 
 code_completion 작성 규칙:
 - language 필드를 반드시 포함: Python 코드는 "python", SQL 쿼리는 "sql"
+- **[절대 금지] Java, C, C++, JavaScript 등 Python/SQL 이외의 언어로 code_completion 문제 출제 금지** — 반드시 "python" 또는 "sql" 중 하나만 사용
+- **[절대 금지] 빈칸을 `// 빈칸`, `# 빈칸`, `/* 빈칸 */` 등 주석으로 표시 금지** — 반드시 `___` (언더스코어 3개)만 사용
 - [Python] code_template은 Python 인터프리터로 즉시 실행 가능한 완전한 코드여야 함
 - [SQL] code_template은 CREATE TABLE + INSERT로 테이블/데이터를 셋업한 뒤 빈칸이 포함된 SELECT 문을 작성 — DB 없이도 SQLite로 실행 가능해야 함
 - expected_output은 완성 코드 실행 시 출력되는 값과 정확히 일치해야 함 (공백/줄바꿈 포함)
