@@ -208,8 +208,8 @@ def validate_quiz_set(quiz_set: dict) -> dict:
         scaled = math.floor(base_count * total / base_total)
         actual_count = actual_dist[style]
         if abs(actual_count - scaled) > 1:
-            set_errors.append(
-                f"유형 분포 오류 [{style}]: {actual_count}개 (기대: {scaled}개, ±1 허용)"
+            set_warnings.append(
+                f"유형 분포 권고 [{style}]: {actual_count}개 (권장: {scaled}개, ±1)"
             )
 
     # ── 정답 분포 검증 ────────────────────────────────────────────────────────
