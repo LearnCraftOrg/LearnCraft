@@ -1,5 +1,6 @@
 """구조적 유효성 평가 - 퀴즈 세트 및 문항 단위 검증."""
 
+import math
 import re
 from typing import Any
 
@@ -192,20 +193,23 @@ def validate_quiz_set(quiz_set: dict) -> dict:
         if cc_count > 1:
             set_errors.append(f"코드완성 수 오류: {cc_count}개 (기대: 최대 1개)")
 
-    # ── 유형 분포 검증 (±1 허용) ─────────────────────────────────────────────
+    # ── 유형 분포 검증 (실제 문항 수에 비례 스케일, ±1 허용) ──────────────────
 
-    expected_dist = STYLE_DISTRIBUTION.get(difficulty, STYLE_DISTRIBUTION["medium"])
+    base_dist = STYLE_DISTRIBUTION.get(difficulty, STYLE_DISTRIBUTION["medium"])
+    base_total = sum(base_dist.values())  # 10
     actual_dist: dict[str, int] = {style: 0 for style in VALID_STYLES}
     for q in quizzes:
         style = q.get("style", "")
         if style in actual_dist:
             actual_dist[style] += 1
 
-    for style, expected_count in expected_dist.items():
+    for style, base_count in base_dist.items():
+        # floor 사용: 8문항일 때 prediction 기대값 floor(1.6)=1, ±1 → [0,2]
+        scaled = math.floor(base_count * total / base_total)
         actual_count = actual_dist[style]
-        if abs(actual_count - expected_count) > 1:
+        if abs(actual_count - scaled) > 1:
             set_errors.append(
-                f"유형 분포 오류 [{style}]: {actual_count}개 (기대: {expected_count}개, ±1 허용)"
+                f"유형 분포 오류 [{style}]: {actual_count}개 (기대: {scaled}개, ±1 허용)"
             )
 
     # ── 정답 분포 검증 ────────────────────────────────────────────────────────
