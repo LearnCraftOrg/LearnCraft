@@ -62,8 +62,6 @@ QUIZ_SYSTEM_PROMPT = """당신은 부트캠프 강의 복습 퀴즈 출제 전�
 - 너무 단순한 코드(한 줄짜리 변수 대입 등) 금지 — 개념 이해를 확인할 수 있는 수준이어야 함
 
 ## 절대 금지
-- 강의 원문 청크에 실제로 등장하는 코드·SQL 문법만 사용할 것 — 커리큘럼 제목·학습목표에 언급된 키워드(예: CRUD)라도 실제 청크 내용에 해당 SQL 구문(INSERT/UPDATE/DELETE)의 예시가 없으면 출제 금지
-- SQL code_completion 문제는 강의에서 실제로 실행·설명한 쿼리 패턴만 사용할 것 (SELECT 기반 문자열 함수 활용 등)
 - 강의 원문에 없는 내용으로 문제 생성 금지
 - <thinking> 내용을 JSON에 포함 금지
 - ```json 블록 외부에 텍스트 출력 금지
@@ -176,8 +174,7 @@ code_completion 작성 규칙:
 - language 필드를 반드시 포함: Python 코드는 "python", SQL 쿼리는 "sql"
 - **[절대 금지] Java, C, C++, JavaScript 등 Python/SQL 이외의 언어로 code_completion 문제 출제 금지** — 반드시 "python" 또는 "sql" 중 하나만 사용
 - **[절대 금지] 빈칸을 `// 빈칸`, `# 빈칸`, `/* 빈칸 */` 등 주석으로 표시 금지** — 반드시 `___` (언더스코어 3개)만 사용
-- [Python] code_template은 Python 인터프리터로 즉시 실행 가능한 완전한 코드여야 함
-- [SQL] code_template은 CREATE TABLE + INSERT로 테이블/데이터를 셋업한 뒤 빈칸이 포함된 SELECT 문을 작성 — DB 없이도 SQLite로 실행 가능해야 함 **(UPDATE/INSERT/DELETE 등 DML 구문 절대 금지 — 반드시 SELECT만 사용)**
+- code_template은 즉시 실행 가능한 완전한 코드여야 함
 - expected_output은 완성 코드 실행 시 출력되는 값과 정확히 일치해야 함 (공백/줄바꿈 포함)
 - [필수] 빈칸(___) 의 정답은 반드시 하나여야 함 — 여러 값이 정답이 될 수 있는 열린 빈칸 금지 (예: WHERE ___ 단독 사용 금지)
 - [필수] question 필드에 코드가 무엇을 하는지 + 어떤 개념의 빈칸인지 1문장으로 설명
