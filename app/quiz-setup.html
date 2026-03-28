@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LearnCraft — 퀴즈 생성</title>
+  <link rel="stylesheet" href="styles/base.css" />
+  <link rel="stylesheet" href="styles/layout.css" />
+  <link rel="stylesheet" href="styles/components.css" />
+  <style>
+    .setup-wrap { max-width: 700px; margin: 0 auto; }
+
+    .step-indicator { display:flex; align-items:center; justify-content:center; margin-bottom:var(--space-8); }
+    .step { display:flex; align-items:center; gap:var(--space-2); }
+    .step-circle {
+      width:28px; height:28px; border-radius:50%;
+      border:2px solid var(--color-border-strong);
+      background:var(--color-surface); color:var(--color-text-muted);
+      font-size:var(--text-xs); font-weight:700;
+      display:flex; align-items:center; justify-content:center;
+    }
+    .step.active .step-circle { background:var(--color-primary); border-color:var(--color-primary); color:#fff; }
+    .step-label { font-size:var(--text-xs); font-weight:500; color:var(--color-text-muted); }
+    .step.active .step-label { color:var(--color-primary); }
+    .step-line { width:48px; height:2px; background:var(--color-border); margin:0 var(--space-2); }
+
+    /* 강의 체크박스 리스트 */
+    .lecture-search {
+      width:100%; box-sizing:border-box;
+      padding:var(--space-2) var(--space-3);
+      border:1px solid var(--color-border);
+      border-radius:var(--radius-md);
+      font-size:var(--text-sm);
+      margin-bottom:var(--space-2);
+      outline:none;
+    }
+    .lecture-search:focus { border-color:var(--color-primary); box-shadow:0 0 0 3px rgba(79,70,229,.1); }
+
+    .lecture-list {
+      max-height:280px; overflow-y:auto;
+      border:1px solid var(--color-border);
+      border-radius:var(--radius-md);
+      background:var(--color-surface);
+    }
+    .lecture-item {
+      display:flex; align-items:flex-start; gap:var(--space-3);
+      padding:var(--space-3) var(--space-4);
+      cursor:pointer; border-bottom:1px solid var(--color-border-light);
+      transition:background .1s;
+    }
+    .lecture-item:last-child { border-bottom:none; }
+    .lecture-item:hover { background:var(--color-primary-light); }
+    .lecture-item.selected { background:var(--color-primary-light); }
+    .lecture-item input[type="checkbox"] { margin-top:2px; accent-color:var(--color-primary); flex-shrink:0; }
+    .lecture-item-body { flex:1; min-width:0; }
+    .lecture-item-date { font-size:var(--text-xs); color:var(--color-text-muted); font-weight:500; }
+    .lecture-item-subject { font-size:var(--text-sm); font-weight:600; color:var(--color-text); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .lecture-item-goal { font-size:var(--text-xs); color:var(--color-text-secondary); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+    .lecture-list-toolbar {
+      display:flex; align-items:center; justify-content:space-between;
+      margin-bottom:var(--space-2);
+    }
+    .selected-badge {
+      display:inline-flex; align-items:center; gap:4px;
+      padding:2px 10px; border-radius:999px;
+      font-size:var(--text-xs); font-weight:600;
+      background:var(--color-primary); color:#fff;
+    }
+    .selected-badge.none { background:var(--color-border); color:var(--color-text-muted); }
+
+    /* 타이머 설정 */
+    .timer-row {
+      display:flex; align-items:center; gap:var(--space-3);
+      padding:var(--space-3) var(--space-4);
+      background:var(--color-surface-alt);
+      border:1px solid var(--color-border);
+      border-radius:var(--radius-md);
+    }
+    .timer-row label { font-size:var(--text-sm); font-weight:500; flex:1; }
+    .timer-input {
+      width:72px;
+      padding:var(--space-1) var(--space-2);
+      border:1px solid var(--color-border);
+      border-radius:var(--radius-sm);
+      font-size:var(--text-sm); text-align:center;
+      outline:none;
+    }
+    .timer-input:focus { border-color:var(--color-primary); }
+    .timer-unit { font-size:var(--text-xs); color:var(--color-text-muted); }
+    .timer-toggle { display:flex; align-items:center; gap:var(--space-2); font-size:var(--text-sm); color:var(--color-text-muted); }
+
+    .loading-overlay {
+      display:none; flex-direction:column; align-items:center;
+      gap:var(--space-6); padding:var(--space-12) 0; text-align:center;
+    }
+    .loading-overlay.visible { display:flex; }
+    .loading-spinner {
+      width:48px; height:48px;
+      border:3px solid var(--color-border); border-top-color:var(--color-primary);
+      border-radius:50%; animation:spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform:rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<nav class="top-nav">
+  <div class="top-nav-inner">
+    <a href="index.html" class="nav-logo-wrap">
+      <img src="../docs/img/RGB_LIKELION_KR.png" alt="Likelion" class="nav-logo" />
+      <span class="nav-logo-label">LearnCraft</span>
+    </a>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span>Dashboard</span>
+      </a>
+      <a href="lectures.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <span>강의 목록</span>
+      </a>
+      <a href="quiz-setup.html" class="nav-link active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span>퀴즈 생성</span>
+      </a>
+      <a href="personalized-guide.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        <span>개인화 가이드</span>
+      </a>
+      <a href="quality-report.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <span>품질 보고서</span>
+      </a>
+    </div>
+    <div class="nav-actions">
+      <div class="nav-avatar">LC</div>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <div class="container">
+    <div class="page-content">
+      <div class="setup-wrap">
+
+        <div style="text-align:center;margin-bottom:var(--space-8);">
+          <h1 style="font-size:var(--text-2xl);font-weight:700;letter-spacing:-0.02em;margin-bottom:var(--space-2);">새 퀴즈 생성</h1>
+          <p class="text-secondary">강의를 선택하고 난이도를 설정하면 AI가 문제를 자동으로 만들어 드립니다.</p>
+        </div>
+
+        <div class="step-indicator">
+          <div class="step active">
+            <div class="step-circle">1</div>
+            <span class="step-label">강의 선택</span>
+          </div>
+          <div class="step-line"></div>
+          <div class="step">
+            <div class="step-circle">2</div>
+            <span class="step-label">옵션 설정</span>
+          </div>
+          <div class="step-line"></div>
+          <div class="step">
+            <div class="step-circle">3</div>
+            <span class="step-label">생성 완료</span>
+          </div>
+        </div>
+
+        <!-- Form -->
+        <div class="card" id="formCard" style="padding:var(--space-8);">
+
+          <!-- 강의 선택 (다중) -->
+          <div class="form-group" style="margin-bottom:var(--space-6);">
+            <div class="lecture-list-toolbar">
+              <label class="form-label" style="margin-bottom:0;">
+                강의 선택 <span style="color:var(--color-error);">*</span>
+              </label>
+              <div style="display:flex;align-items:center;gap:var(--space-2);">
+                <span class="selected-badge none" id="selBadge">0개 선택</span>
+                <button type="button" class="btn btn-ghost" style="font-size:var(--text-xs);padding:2px 8px;height:auto;" onclick="toggleSelectAll()">전체 선택</button>
+              </div>
+            </div>
+            <div class="form-hint" style="margin-bottom:var(--space-2);">여러 강의를 선택하면 통합 퀴즈가 생성됩니다.</div>
+            <input type="text" class="lecture-search" id="lectureSearch" placeholder="날짜 또는 주제로 검색..." oninput="filterLectures()" />
+            <div class="lecture-list" id="lectureList">
+              <div class="lecture-item" style="justify-content:center;color:var(--color-text-muted);font-size:var(--text-sm);">강의 목록을 불러오는 중...</div>
+            </div>
+          </div>
+
+          <!-- 검색 범위 -->
+          <div class="form-group" style="margin-bottom:var(--space-6);">
+            <label class="form-label">검색 범위 지정 <span class="text-muted">(선택)</span></label>
+            <div class="form-hint">특정 주제나 키워드를 입력하면 해당 내용 위주로 문제가 생성됩니다.</div>
+            <input type="text" class="input" id="queryInput" placeholder="예: 리스트 컴프리헨션, dict 메서드..." style="margin-top:var(--space-2);" />
+          </div>
+
+          <div class="divider"></div>
+
+          <!-- 난이도 -->
+          <div class="form-group" style="margin-bottom:var(--space-6);">
+            <label class="form-label">난이도 선택 <span style="color:var(--color-error);">*</span></label>
+            <div class="form-hint" style="margin-bottom:var(--space-3);">난이도에 따라 문제 유형과 구성이 달라집니다.</div>
+            <div class="difficulty-options">
+              <div class="difficulty-card" onclick="selectDifficulty(this,'easy')">
+                <div class="difficulty-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+                <div class="difficulty-level" style="color:#15803D;">쉬움</div>
+                <div class="difficulty-desc">개념 정의와 기본 비교 위주의 문제로 구성됩니다.</div>
+                <div class="difficulty-count">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+                  10문항 · 객관식 7 / 단답형 3
+                </div>
+              </div>
+              <div class="difficulty-card selected" onclick="selectDifficulty(this,'medium')">
+                <div class="difficulty-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+                <div class="difficulty-level" style="color:#92400E;">중간</div>
+                <div class="difficulty-desc">코드 이해와 예측을 포함한 균형 잡힌 구성입니다.</div>
+                <div class="difficulty-count">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+                  10문항 · 객관식 7 / 단답형 2 / 코드 1
+                </div>
+              </div>
+              <div class="difficulty-card" onclick="selectDifficulty(this,'hard')">
+                <div class="difficulty-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+                <div class="difficulty-level" style="color:#B91C1C;">어려움</div>
+                <div class="difficulty-desc">응용 및 코드 완성 위주의 심화 문제가 포함됩니다.</div>
+                <div class="difficulty-count">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+                  10문항 · 객관식 7 / 단답형 2 / 코드 1
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <!-- 타이머 설정 -->
+          <div class="form-group" style="margin-bottom:var(--space-6);">
+            <label class="form-label">타이머 설정</label>
+            <div class="form-hint" style="margin-bottom:var(--space-3);">제한 시간을 0으로 설정하면 타이머 없이 풀 수 있습니다.</div>
+            <div class="timer-row">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" stroke-width="2" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <label style="font-size:var(--text-sm);font-weight:500;flex:1;margin-bottom:0;">제한 시간</label>
+              <input type="number" class="timer-input" id="timerInput" value="20" min="0" max="120" />
+              <span class="timer-unit">분</span>
+            </div>
+          </div>
+
+          <div style="background:var(--color-primary-light);border:1px solid #C7D2FE;border-radius:var(--radius-md);padding:var(--space-4);margin-bottom:var(--space-6);display:flex;gap:var(--space-3);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <div class="text-sm" style="color:var(--color-primary);">
+              <strong>GPT-4o-mini</strong>를 사용하여 강의 내용 기반으로 문제를 생성합니다. 생성에는 약 15~30초가 소요됩니다.
+            </div>
+          </div>
+
+          <div id="errorBanner" class="hidden" style="background:var(--color-error-light);border:1px solid #FECACA;border-radius:var(--radius-md);padding:var(--space-4);margin-bottom:var(--space-4);font-size:var(--text-sm);color:#B91C1C;"></div>
+
+          <button class="btn btn-primary btn-full btn-lg" onclick="startGeneration()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            퀴즈 생성 시작
+          </button>
+        </div>
+
+        <!-- Loading -->
+        <div class="card loading-overlay" id="loadingState" style="padding:var(--space-8);">
+          <div class="loading-spinner"></div>
+          <div>
+            <div class="text-base font-semibold text-primary mb-1">퀴즈를 생성하고 있습니다...</div>
+            <div class="text-sm text-secondary">강의 내용을 분석하고 문제를 만들고 있어요. 잠시만 기다려 주세요.</div>
+          </div>
+          <div style="width:100%;display:flex;flex-direction:column;gap:var(--space-3);">
+            <div class="skeleton skeleton-line" style="width:100%;height:48px;border-radius:var(--radius-md);"></div>
+            <div class="skeleton skeleton-line" style="width:100%;height:48px;border-radius:var(--radius-md);"></div>
+            <div class="skeleton skeleton-line" style="width:80%;height:48px;border-radius:var(--radius-md);"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+  const API = 'http://localhost:8000';
+  let selectedDifficulty = 'medium';
+  let allLectures = [];
+  let selectedDates = new Set();
+
+  const TIMER_DEFAULTS = { easy: 15, medium: 20, hard: 25 };
+
+  const params = new URLSearchParams(location.search);
+  if (params.get('difficulty')) {
+    selectedDifficulty = params.get('difficulty');
+    document.getElementById('timerInput').value = TIMER_DEFAULTS[selectedDifficulty] || 20;
+  }
+
+  async function loadLectures() {
+    try {
+      const res = await fetch(`${API}/api/lectures`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      allLectures = await res.json();
+      renderLectures(allLectures);
+
+      // URL에서 date가 넘어온 경우 자동 선택
+      const preDate = params.get('date');
+      if (preDate) {
+        selectedDates.add(preDate);
+        updateBadge();
+        renderLectures(allLectures);
+      }
+    } catch (e) {
+      document.getElementById('lectureList').innerHTML =
+        '<div class="lecture-item" style="justify-content:center;color:var(--color-error);font-size:var(--text-sm);">강의 목록을 불러올 수 없습니다.</div>';
+    }
+
+    // 난이도 카드 초기 선택 반영
+    document.querySelectorAll('.difficulty-card').forEach(card => {
+      const lvl = card.querySelector('.difficulty-level').textContent;
+      const match = selectedDifficulty === 'easy' ? '쉬움' : selectedDifficulty === 'hard' ? '어려움' : '중간';
+      card.classList.toggle('selected', lvl.includes(match));
+    });
+  }
+
+  function renderLectures(list) {
+    const container = document.getElementById('lectureList');
+    if (!list.length) {
+      container.innerHTML = '<div class="lecture-item" style="justify-content:center;color:var(--color-text-muted);font-size:var(--text-sm);">검색 결과가 없습니다.</div>';
+      return;
+    }
+    container.innerHTML = list.map(l => {
+      const checked = selectedDates.has(l.date);
+      return `<div class="lecture-item${checked ? ' selected' : ''}" onclick="toggleDate('${l.date}', this)">
+        <input type="checkbox" ${checked ? 'checked' : ''} onclick="event.stopPropagation(); toggleDate('${l.date}', this.closest('.lecture-item'))" />
+        <div class="lecture-item-body">
+          <div class="lecture-item-date">${l.date}${l.track ? ` <span class="badge badge-muted" style="font-size:0.7rem;">${l.category} | ${l.track}</span>` : ''}</div>
+          <div class="lecture-item-subject">${l.content || '(제목 없음)'}</div>
+          ${l.learning_goal ? `<div class="lecture-item-goal">${l.learning_goal}</div>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function toggleDate(date, el) {
+    if (selectedDates.has(date)) {
+      selectedDates.delete(date);
+      el.classList.remove('selected');
+      el.querySelector('input[type=checkbox]').checked = false;
+    } else {
+      selectedDates.add(date);
+      el.classList.add('selected');
+      el.querySelector('input[type=checkbox]').checked = true;
+    }
+    updateBadge();
+  }
+
+  function updateBadge() {
+    const badge = document.getElementById('selBadge');
+    const n = selectedDates.size;
+    badge.textContent = `${n}개 선택`;
+    badge.className = 'selected-badge' + (n === 0 ? ' none' : '');
+  }
+
+  let allSelected = false;
+  function toggleSelectAll() {
+    const visible = getCurrentFiltered();
+    allSelected = !allSelected;
+    if (allSelected) {
+      visible.forEach(l => selectedDates.add(l.date));
+    } else {
+      visible.forEach(l => selectedDates.delete(l.date));
+    }
+    updateBadge();
+    renderLectures(visible.length < allLectures.length ? visible : allLectures);
+  }
+
+  function getCurrentFiltered() {
+    const q = document.getElementById('lectureSearch').value.trim().toLowerCase();
+    if (!q) return allLectures;
+    return allLectures.filter(l =>
+      l.date.includes(q) ||
+      (l.content && l.content.toLowerCase().includes(q)) ||
+      (l.track && l.track.toLowerCase().includes(q)) ||
+      (l.category && l.category.toLowerCase().includes(q)) ||
+      (l.learning_goal && l.learning_goal.toLowerCase().includes(q))
+    );
+  }
+
+  function filterLectures() {
+    renderLectures(getCurrentFiltered());
+  }
+
+  function selectDifficulty(card, level) {
+    document.querySelectorAll('.difficulty-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    selectedDifficulty = level;
+    // 타이머 기본값 업데이트
+    const timerEl = document.getElementById('timerInput');
+    timerEl.value = TIMER_DEFAULTS[level] || 20;
+  }
+
+  async function startGeneration() {
+    const errorBanner = document.getElementById('errorBanner');
+    errorBanner.classList.add('hidden');
+
+    if (selectedDates.size === 0) {
+      document.getElementById('lectureList').style.outline = '2px solid var(--color-error)';
+      document.getElementById('lectureList').style.outlineOffset = '2px';
+      setTimeout(() => {
+        document.getElementById('lectureList').style.outline = '';
+      }, 2000);
+      return;
+    }
+
+    document.getElementById('formCard').style.display = 'none';
+    document.getElementById('loadingState').classList.add('visible');
+
+    const timerMinutes = parseInt(document.getElementById('timerInput').value) || 0;
+
+    try {
+      const dates = Array.from(selectedDates);
+      const body = {
+        difficulty: selectedDifficulty,
+        query: document.getElementById('queryInput').value.trim() || null,
+      };
+      if (dates.length === 1) {
+        body.date = dates[0];
+      } else {
+        body.dates = dates;
+      }
+
+      const res = await fetch(`${API}/api/quiz/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP ${res.status}`);
+      }
+
+      const quizData = await res.json();
+      quizData.timeLimit = timerMinutes * 60; // 초 단위로 저장
+      localStorage.setItem('lc_quiz', JSON.stringify(quizData));
+      location.href = 'quiz-review.html';
+
+    } catch (e) {
+      document.getElementById('loadingState').classList.remove('visible');
+      document.getElementById('formCard').style.display = '';
+      errorBanner.textContent = '퀴즈 생성 실패: ' + e.message;
+      errorBanner.classList.remove('hidden');
+    }
+  }
+
+  loadLectures();
+</script>
+
+</body>
+</html>

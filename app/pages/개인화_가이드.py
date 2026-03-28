@@ -10,9 +10,11 @@ import streamlit as st
 
 from src.quiz.analyzer import concepts_to_query, parse_wrong_concepts_from_text
 from src.guide.summarizer import generate_guide_by_query
+from app.styles import inject_global_css
 
 st.set_page_config(page_title="개인화 학습 가이드", page_icon="🎯", layout="wide")
-st.title("🎯 개인화 학습 가이드")
+inject_global_css()
+st.title("개인화 학습 가이드")
 st.caption("퀴즈에서 틀린 개념들을 입력하면 해당 개념에 집중한 맞춤형 학습 가이드를 생성합니다.")
 
 # 퀴즈 오답 자동 채우기
@@ -40,7 +42,7 @@ if wrong_input and wrong_input.strip():
 
 st.divider()
 
-if st.button("🎯 개인화 학습 가이드 생성", type="primary",
+if st.button("개인화 학습 가이드 생성", type="primary",
              disabled=not bool(wrong_input and wrong_input.strip())):
     concepts = parse_wrong_concepts_from_text(wrong_input)
     if not concepts:
@@ -61,11 +63,11 @@ if st.session_state.get("personalized_guide"):
     guide = st.session_state["personalized_guide"]
     used = st.session_state.get("personalized_concepts", [])
     label = ", ".join(used[:3]) + ("..." if len(used) > 3 else "")
-    st.success(f"✅ [{label}] 개인화 학습 가이드 생성 완료!")
+    st.success(f"[{label}] 개인화 학습 가이드 생성 완료!")
 
     st.divider()
 
-    st.subheader("🔑 핵심 개념")
+    st.subheader("핵심 개념")
     concepts_list = guide.get("key_concepts", [])
     if concepts_list:
         cols = st.columns(min(len(concepts_list), 3))
@@ -78,14 +80,14 @@ if st.session_state.get("personalized_guide"):
 
     st.divider()
 
-    st.subheader("📌 핵심 요약")
+    st.subheader("핵심 요약")
     summary = guide.get("summary", "")
     if summary:
         st.markdown(summary)
 
     st.divider()
 
-    st.subheader("✅ 복습 포인트")
+    st.subheader("복습 포인트")
     review_points = guide.get("review_points", [])
     if review_points:
         for point in review_points:
@@ -108,7 +110,7 @@ if st.session_state.get("personalized_guide"):
 {chr(10).join(f"- {p}" for p in review_points)}
 """
     st.download_button(
-        label="⬇ Markdown으로 다운로드",
+        label="Markdown으로 다운로드",
         data=guide_md.encode("utf-8"),
         file_name=f"개인화_학습가이드_{'_'.join(used[:2])}.md",
         mime="text/markdown",

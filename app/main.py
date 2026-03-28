@@ -33,6 +33,9 @@ st.set_page_config(
     layout="wide",
 )
 
+from app.styles import inject_global_css
+inject_global_css()
+
 # 앱 시작 시 미인덱싱 강의 자동 처리
 from src.ingestion.loader import get_available_dates, load_script, load_lecture_topics
 from src.ingestion.chunker import chunk_text
@@ -79,31 +82,48 @@ if unindexed:
 
 logger.info("[TIMING] 메인 화면 렌더링까지 총 소요: %.2fs", time.perf_counter() - _t_start)
 
-st.title("📚 LearnCraft")
+st.title("LearnCraft")
 st.subheader("강의 내용 기반 복습 퀴즈 & 학습 가이드 자동 생성")
+st.markdown("강의 스크립트(STT)를 RAG 파이프라인으로 분석하여 **복습 퀴즈**와 **학습 가이드**를 자동으로 생성합니다.")
 
-st.markdown("""
-LearnCraft는 강의 스크립트(STT)를 RAG 파이프라인으로 분석하여
-**복습 퀴즈**와 **학습 가이드**를 자동으로 생성합니다.
+st.markdown("<br>", unsafe_allow_html=True)
 
----
+# 기능 카드
+col1, col2, col3 = st.columns(3)
 
-### 사용 방법
+with col1:
+    st.markdown(
+        '<div class="lc-feature-card">'
+        '<h3>퀴즈 풀기</h3>'
+        '<p>강의를 선택하고 난이도별 퀴즈를 생성해 복습합니다. 객관식, 단답형, 코드 완성 문제를 지원합니다.</p>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
 
-| 단계 | 페이지 | 설명 |
-|------|--------|------|
-| 1️⃣ | **퀴즈 풀기** | 강의를 선택하고 퀴즈 생성 후 학습 |
-| 2️⃣ | **학습 가이드** | 핵심 개념 요약 및 복습 포인트 확인 |
-| 3️⃣ | **품질 평가** | 생성된 퀴즈의 자동 평가 리포트 확인 |
+with col2:
+    st.markdown(
+        '<div class="lc-feature-card">'
+        '<h3>학습 가이드</h3>'
+        '<p>강의의 핵심 개념과 요약을 자동으로 정리합니다. 마크다운으로 내보낼 수 있습니다.</p>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
 
----
+with col3:
+    st.markdown(
+        '<div class="lc-feature-card">'
+        '<h3>품질 평가</h3>'
+        '<p>생성된 퀴즈의 품질을 자동으로 평가하고 리포트를 제공합니다.</p>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
 
-왼쪽 사이드바에서 페이지를 선택하세요.
-""")
+st.markdown("<br>", unsafe_allow_html=True)
+st.caption("왼쪽 사이드바에서 페이지를 선택하세요.")
 
 from config.settings import OPENAI_API_KEY
 if not OPENAI_API_KEY:
-    st.error("⚠️ OPENAI_API_KEY가 설정되지 않았습니다. 프로젝트 루트에 `.env` 파일을 생성하세요.")
+    st.error("OPENAI_API_KEY가 설정되지 않았습니다. 프로젝트 루트에 `.env` 파일을 생성하세요.")
     st.code("OPENAI_API_KEY=sk-...")
 else:
-    st.success("✅ OpenAI API 키 확인됨")
+    st.success("OpenAI API 키 확인됨")
