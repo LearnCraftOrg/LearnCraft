@@ -36,6 +36,24 @@
     }
     .lecture-search:focus { border-color:var(--color-primary); box-shadow:0 0 0 3px rgba(79,70,229,.1); }
 
+    /* 날짜 범위 선택 */
+    .date-range-row {
+      display:flex; align-items:center; gap:var(--space-2);
+      margin-bottom:var(--space-2);
+      flex-wrap:wrap;
+    }
+    .date-range-row input[type="date"] {
+      padding:var(--space-2) var(--space-3);
+      border:1px solid var(--color-border);
+      border-radius:var(--radius-md);
+      font-size:var(--text-sm);
+      outline:none;
+      color:var(--color-text);
+      background:var(--color-surface);
+    }
+    .date-range-row input[type="date"]:focus { border-color:var(--color-primary); box-shadow:0 0 0 3px rgba(79,70,229,.1); }
+    .date-range-sep { font-size:var(--text-sm); color:var(--color-text-muted); flex-shrink:0; }
+
     .lecture-list {
       max-height:280px; overflow-y:auto;
       border:1px solid var(--color-border);
@@ -181,7 +199,14 @@
               </div>
             </div>
             <div class="form-hint" style="margin-bottom:var(--space-2);">여러 강의를 선택하면 통합 퀴즈가 생성됩니다.</div>
-            <input type="text" class="lecture-search" id="lectureSearch" placeholder="날짜 또는 주제로 검색..." oninput="filterLectures()" />
+            <div class="date-range-row">
+              <input type="date" id="dateFrom" title="시작일" />
+              <span class="date-range-sep">~</span>
+              <input type="date" id="dateTo" title="종료일" />
+              <button type="button" class="btn btn-ghost" style="font-size:var(--text-xs);padding:4px 12px;height:auto;" onclick="applyDateRange()">범위 선택</button>
+              <button type="button" class="btn btn-ghost" style="font-size:var(--text-xs);padding:4px 12px;height:auto;color:var(--color-text-muted);" onclick="clearDateRange()">초기화</button>
+            </div>
+            <input type="text" class="lecture-search" id="lectureSearch" placeholder="주제·카테고리로 검색..." oninput="filterLectures()" />
             <div class="lecture-list" id="lectureList">
               <div class="lecture-item" style="justify-content:center;color:var(--color-text-muted);font-size:var(--text-sm);">강의 목록을 불러오는 중...</div>
             </div>
@@ -189,7 +214,7 @@
 
           <!-- 검색 범위 -->
           <div class="form-group" style="margin-bottom:var(--space-6);">
-            <label class="form-label">검색 범위 지정 <span class="text-muted">(선택)</span></label>
+            <label class="form-label">문제 생성 범위 지정 <span class="text-muted">(선택)</span></label>
             <div class="form-hint">특정 주제나 키워드를 입력하면 해당 내용 위주로 문제가 생성됩니다.</div>
             <input type="text" class="input" id="queryInput" placeholder="예: 리스트 컴프리헨션, dict 메서드..." style="margin-top:var(--space-2);" />
           </div>
@@ -385,6 +410,29 @@
   }
 
   function filterLectures() {
+    renderLectures(getCurrentFiltered());
+  }
+
+  function applyDateRange() {
+    const from = document.getElementById('dateFrom').value;
+    const to = document.getElementById('dateTo').value;
+    if (!from || !to) return;
+    allLectures.forEach(l => {
+      if (l.date >= from && l.date <= to) {
+        selectedDates.add(l.date);
+      } else {
+        selectedDates.delete(l.date);
+      }
+    });
+    updateBadge();
+    renderLectures(getCurrentFiltered());
+  }
+
+  function clearDateRange() {
+    document.getElementById('dateFrom').value = '';
+    document.getElementById('dateTo').value = '';
+    selectedDates.clear();
+    updateBadge();
     renderLectures(getCurrentFiltered());
   }
 
