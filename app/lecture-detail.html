@@ -7,6 +7,52 @@
   <link rel="stylesheet" href="styles/base.css" />
   <link rel="stylesheet" href="styles/layout.css" />
   <link rel="stylesheet" href="styles/components.css" />
+  <style>
+    .concept-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: var(--space-4);
+      margin-top: var(--space-4);
+    }
+    .concept-card {
+      padding: var(--space-4);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      background: var(--color-surface);
+    }
+    .concept-term {
+      font-size: var(--text-sm); font-weight: 700;
+      color: var(--color-primary);
+      margin-bottom: var(--space-2);
+    }
+    .concept-desc { font-size: var(--text-sm); color: var(--color-text-secondary); line-height: 1.6; }
+
+    .review-list { list-style: none; padding: 0; margin: var(--space-4) 0 0; }
+    .review-list li {
+      display: flex; align-items: flex-start; gap: var(--space-3);
+      padding: var(--space-3) 0;
+      border-bottom: 1px solid var(--color-border-light);
+      font-size: var(--text-sm); line-height: 1.6; color: var(--color-text-secondary);
+    }
+    .review-list li:last-child { border-bottom: none; }
+    .review-list li::before {
+      content: ''; width: 6px; height: 6px; border-radius: 50%;
+      background: var(--color-primary); flex-shrink: 0; margin-top: 7px;
+    }
+
+    .summary-block {
+      font-size: var(--text-sm); line-height: 1.8;
+      color: var(--color-text-secondary);
+      white-space: pre-wrap;
+    }
+
+    .loading-spinner {
+      width: 36px; height: 36px;
+      border: 3px solid var(--color-border); border-top-color: var(--color-primary);
+      border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
 </head>
 <body>
 
@@ -138,9 +184,69 @@
                 퀴즈 생성하기
               </button>
             </div>
+
+            <div class="card" style="margin-bottom:var(--space-4);">
+              <div style="margin-bottom:var(--space-4);">
+                <div class="text-base font-semibold mb-1">이 강의 학습 가이드</div>
+                <div class="text-sm text-secondary">강의 핵심 개념과 복습 포인트를 AI가 요약합니다.</div>
+              </div>
+              <button class="btn btn-secondary btn-full" id="guideBtn" onclick="generateGuide()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                학습 가이드 생성하기
+              </button>
+            </div>
           </div>
 
         </div>
+
+        <!-- Guide loading -->
+        <div class="card hidden" id="guideLoading" style="padding:var(--space-8);text-align:center;margin-top:var(--space-6);">
+          <div class="loading-spinner" style="margin-bottom:var(--space-4);"></div>
+          <div class="text-sm text-secondary">학습 가이드를 생성하고 있습니다...</div>
+        </div>
+
+        <!-- Guide error -->
+        <div class="hidden" id="guideError" style="margin-top:var(--space-6);">
+          <div class="card" style="padding:var(--space-4);border-color:#FECACA;background:var(--color-error-light);">
+            <div class="text-sm" style="color:#B91C1C;" id="guideErrorMsg"></div>
+          </div>
+        </div>
+
+        <!-- Guide result -->
+        <div class="hidden" id="guideResult" style="margin-top:var(--space-6);">
+          <div class="divider"></div>
+
+          <div class="section">
+            <div class="section-header">
+              <div class="section-header-text">
+                <h2>핵심 개념</h2>
+                <p>이 강의의 핵심 개념들입니다.</p>
+              </div>
+            </div>
+            <div class="concept-grid" id="guideConceptGrid"></div>
+          </div>
+
+          <div class="section">
+            <div class="section-header">
+              <div class="section-header-text"><h2>학습 요약</h2></div>
+            </div>
+            <div class="card" style="padding:var(--space-5);">
+              <div class="summary-block" id="guideSummary"></div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-header">
+              <div class="section-header-text"><h2>복습 포인트</h2></div>
+            </div>
+            <div class="card" style="padding:var(--space-4) var(--space-5);">
+              <ul class="review-list" id="guideReviewList"></ul>
+            </div>
+          </div>
+
+
+        </div>
+
       </div>
 
     </div>
@@ -208,6 +314,64 @@
   function goToQuizSetup() {
     const diff = document.getElementById('sidebarDifficulty').value;
     location.href = `quiz-setup.html?date=${date}&difficulty=${diff}`;
+  }
+
+  async function generateGuide() {
+    const btn = document.getElementById('guideBtn');
+    btn.disabled = true;
+    btn.textContent = '생성 중...';
+
+    document.getElementById('guideError').classList.add('hidden');
+    document.getElementById('guideResult').classList.add('hidden');
+    document.getElementById('guideLoading').classList.remove('hidden');
+    document.getElementById('guideLoading').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    try {
+      const res = await fetch(`${API}/api/guide/${date}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      renderGuide(data);
+    } catch (e) {
+      document.getElementById('guideLoading').classList.add('hidden');
+      document.getElementById('guideErrorMsg').textContent = '가이드 생성 실패: ' + e.message;
+      document.getElementById('guideError').classList.remove('hidden');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> 학습 가이드 생성하기';
+    }
+  }
+
+  function renderGuide(data) {
+    document.getElementById('guideLoading').classList.add('hidden');
+
+    // 핵심 개념
+    const grid = document.getElementById('guideConceptGrid');
+    const concepts = data.key_concepts || [];
+    grid.innerHTML = concepts.map(c => `
+      <div class="concept-card">
+        <div class="concept-term">${escHtml(c.term || '')}</div>
+        <div class="concept-desc">${escHtml(c.description || '')}</div>
+      </div>
+    `).join('') || '<p class="text-sm text-secondary">개념 데이터가 없습니다.</p>';
+
+    // 요약
+    document.getElementById('guideSummary').textContent = data.summary || '';
+
+    // 복습 포인트
+    const points = data.review_points || [];
+    document.getElementById('guideReviewList').innerHTML = points.map(p =>
+      `<li>${escHtml(p)}</li>`
+    ).join('') || '<li>복습 포인트가 없습니다.</li>';
+
+    document.getElementById('guideResult').classList.remove('hidden');
+    document.getElementById('guideResult').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
   load();
