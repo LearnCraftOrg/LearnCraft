@@ -190,8 +190,22 @@
           <div id="scorePanelWrap">
             <div class="score-bar">
               <div class="score-circle">
-                <span class="score-percent" id="scorePercent">0%</span>
-                <span class="score-label">정답률</span>
+                <svg class="score-ring" viewBox="0 0 80 80" width="80" height="80" aria-hidden="true">
+                  <circle class="score-ring-bg"
+                          cx="40" cy="40" r="32"
+                          fill="none" stroke="var(--color-primary-light)" stroke-width="8"/>
+                  <circle class="score-ring-fill" id="scoreRingFill"
+                          cx="40" cy="40" r="32"
+                          fill="none" stroke="var(--color-primary)" stroke-width="8"
+                          stroke-linecap="round"
+                          stroke-dasharray="201.06"
+                          stroke-dashoffset="201.06"
+                          transform="rotate(-90 40 40)"/>
+                </svg>
+                <div class="score-circle-text">
+                  <span class="score-percent" id="scorePercent">0%</span>
+                  <span class="score-label">정답률</span>
+                </div>
               </div>
               <div class="score-stats">
                 <div class="score-stat-item">
@@ -479,6 +493,7 @@
   async function submitQuiz(fromTimer) {
     if (submitted) return;
     clearInterval(timerInterval);
+    freezeAllInputs();
 
     if (fromTimer) {
       const warn = document.getElementById('warnBanner');
@@ -568,15 +583,33 @@
     });
   }
 
+  function freezeAllInputs() {
+    document.querySelectorAll('.answer-option').forEach(el => {
+      el.onclick = null;
+      el.style.pointerEvents = 'none';
+      el.style.opacity = '0.6';
+    });
+    document.querySelectorAll('input[id^="ans_"], textarea[id^="ans_"]').forEach(el => {
+      el.disabled = true;
+    });
+  }
+
   function showScorePanel() {
     const total = quizData.quizzes.length;
     const correctCount = Object.values(evalResults).filter(r => r.correct).length;
-    document.getElementById('scorePercent').textContent = (total ? Math.round(correctCount/total*100) : 0) + '%';
+    const pct = total ? Math.round(correctCount / total * 100) : 0;
+    document.getElementById('scorePercent').textContent = pct + '%';
     document.getElementById('scoreTotal').textContent = total;
     document.getElementById('scoreCorrect').textContent = correctCount;
     document.getElementById('scoreWrong').textContent = total - correctCount;
-    document.getElementById('scorePanelWrap').style.display = 'block';
-    document.getElementById('scorePanelWrap').scrollIntoView({ behavior: 'smooth' });
+    const wrap = document.getElementById('scorePanelWrap');
+    wrap.style.display = 'block';
+    wrap.scrollIntoView({ behavior: 'smooth' });
+    const CIRCUMFERENCE = 201.06;
+    requestAnimationFrame(() => {
+      document.getElementById('scoreRingFill').style.strokeDashoffset =
+        CIRCUMFERENCE * (1 - pct / 100);
+    });
   }
 
   function toggleExp(qid) {

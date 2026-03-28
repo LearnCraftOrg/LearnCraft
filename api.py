@@ -226,13 +226,13 @@ def evaluate_answers(req: EvaluateAnswersRequest):
 
         elif qtype == "code_completion":
             run_result = fill_and_run(
-                template=quiz.get("code_template", ""),
-                user_blanks=[user_ans] if isinstance(user_ans, str) else user_ans,
+                code_template=quiz.get("code_template", ""),
+                user_inputs=[user_ans] if isinstance(user_ans, str) else user_ans,
                 expected_output=quiz.get("expected_output", ""),
                 language=quiz.get("language", "python"),
             )
             results[qid] = {
-                "correct": run_result.get("passed", False),
+                "correct": run_result.get("is_correct", False),
                 "answer": quiz.get("blanks", []),
                 "output": run_result.get("stdout", ""),
                 "error": run_result.get("stderr", ""),

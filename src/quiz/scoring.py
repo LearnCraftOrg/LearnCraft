@@ -42,5 +42,7 @@ def evaluate_short_answer(
         data = json.loads(response.choices[0].message.content)
         return bool(data.get("correct", False))
     except Exception:
-        # 평가 실패 시 기존 substring 매칭으로 폴백
-        return correct_answer.lower() in user_answer.lower()
+        # 평가 실패 시 양방향 포함 검사로 폴백
+        ca = correct_answer.lower().strip()
+        ua = user_answer.lower().strip()
+        return ca in ua or ua in ca

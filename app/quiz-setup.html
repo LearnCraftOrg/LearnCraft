@@ -232,7 +232,7 @@
                 <div class="difficulty-desc">개념 정의와 기본 비교 위주의 문제로 구성됩니다.</div>
                 <div class="difficulty-count">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
-                  10문항 · 객관식 7 / 단답형 3
+                  10문항: 객관식 7 / 단답형 3 [15분]
                 </div>
               </div>
               <div class="difficulty-card selected" onclick="selectDifficulty(this,'medium')">
@@ -241,7 +241,7 @@
                 <div class="difficulty-desc">코드 이해와 예측을 포함한 균형 잡힌 구성입니다.</div>
                 <div class="difficulty-count">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
-                  10문항 · 객관식 7 / 단답형 2 / 코드 1
+                  10문항: 객관식 7 / 단답형 2 / 코드 1 [20분]
                 </div>
               </div>
               <div class="difficulty-card" onclick="selectDifficulty(this,'hard')">
@@ -250,7 +250,7 @@
                 <div class="difficulty-desc">응용 및 코드 완성 위주의 심화 문제가 포함됩니다.</div>
                 <div class="difficulty-count">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
-                  10문항 · 객관식 7 / 단답형 2 / 코드 1
+                  10문항: 객관식 7 / 단답형 2 / 코드 1  [25분]
                 </div>
               </div>
             </div>
@@ -261,19 +261,21 @@
           <!-- 타이머 설정 -->
           <div class="form-group" style="margin-bottom:var(--space-6);">
             <label class="form-label">타이머 설정</label>
-            <div class="form-hint" style="margin-bottom:var(--space-3);">제한 시간을 0으로 설정하면 타이머 없이 풀 수 있습니다.</div>
             <div class="timer-row">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" stroke-width="2" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              <label style="font-size:var(--text-sm);font-weight:500;flex:1;margin-bottom:0;">제한 시간</label>
-              <input type="number" class="timer-input" id="timerInput" value="20" min="0" max="120" />
-              <span class="timer-unit">분</span>
+              <span style="font-size:var(--text-sm);font-weight:500;flex:1;">제한 시간</span>
+              <span id="timerDisplay" style="font-size:var(--text-sm);font-weight:700;color:var(--color-text);">20분</span>
+              <label style="display:flex;align-items:center;gap:6px;font-size:var(--text-sm);cursor:pointer;margin-bottom:0;">
+                <input type="checkbox" id="noTimerCheck" onchange="toggleNoTimer()" style="accent-color:var(--color-primary);" />
+                시간 제한 없이
+              </label>
             </div>
           </div>
 
           <div style="background:var(--color-primary-light);border:1px solid #C7D2FE;border-radius:var(--radius-md);padding:var(--space-4);margin-bottom:var(--space-6);display:flex;gap:var(--space-3);">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
             <div class="text-sm" style="color:var(--color-primary);">
-              <strong>GPT-4o-mini</strong>를 사용하여 강의 내용 기반으로 문제를 생성합니다. 생성에는 약 15~30초가 소요됩니다.
+              <strong>GPT-4o-mini</strong>를 사용하여 강의 내용 기반으로 문제를 생성합니다. 생성에는 약 40~50초가 소요됩니다.
             </div>
           </div>
 
@@ -315,7 +317,8 @@
   const params = new URLSearchParams(location.search);
   if (params.get('difficulty')) {
     selectedDifficulty = params.get('difficulty');
-    document.getElementById('timerInput').value = TIMER_DEFAULTS[selectedDifficulty] || 20;
+    document.getElementById('timerDisplay').textContent =
+      (TIMER_DEFAULTS[selectedDifficulty] || 20) + '분';
   }
 
   async function loadLectures() {
@@ -440,9 +443,22 @@
     document.querySelectorAll('.difficulty-card').forEach(c => c.classList.remove('selected'));
     card.classList.add('selected');
     selectedDifficulty = level;
-    // 타이머 기본값 업데이트
-    const timerEl = document.getElementById('timerInput');
-    timerEl.value = TIMER_DEFAULTS[level] || 20;
+    if (!document.getElementById('noTimerCheck').checked) {
+      document.getElementById('timerDisplay').textContent =
+        (TIMER_DEFAULTS[level] || 20) + '분';
+    }
+  }
+
+  function toggleNoTimer() {
+    const noTimer = document.getElementById('noTimerCheck').checked;
+    const display = document.getElementById('timerDisplay');
+    if (noTimer) {
+      display.textContent = '없음';
+      display.style.color = 'var(--color-text-muted)';
+    } else {
+      display.textContent = (TIMER_DEFAULTS[selectedDifficulty] || 20) + '분';
+      display.style.color = 'var(--color-text)';
+    }
   }
 
   async function startGeneration() {
@@ -461,7 +477,8 @@
     document.getElementById('formCard').style.display = 'none';
     document.getElementById('loadingState').classList.add('visible');
 
-    const timerMinutes = parseInt(document.getElementById('timerInput').value) || 0;
+    const noTimer = document.getElementById('noTimerCheck').checked;
+    const timerMinutes = noTimer ? 0 : (TIMER_DEFAULTS[selectedDifficulty] || 20);
 
     try {
       const dates = Array.from(selectedDates);

@@ -94,13 +94,6 @@
   <div class="container">
     <div class="page-content">
 
-      <nav class="breadcrumb">
-        <a href="index.html">Dashboard</a>
-        <span class="breadcrumb-sep">›</span>
-        <a href="lectures.html">강의 목록</a>
-        <span class="breadcrumb-sep">›</span>
-        <span class="breadcrumb-current" id="breadcrumbDate">불러오는 중...</span>
-      </nav>
 
       <!-- Loading -->
       <div id="loadingState">
@@ -185,12 +178,12 @@
               </button>
             </div>
 
-            <div class="card" style="margin-bottom:var(--space-4);">
+            <div class="card" style="border-color:var(--color-primary);border-width:1.5px;margin-bottom:var(--space-4);">
               <div style="margin-bottom:var(--space-4);">
-                <div class="text-base font-semibold mb-1">이 강의 학습 가이드</div>
+                <div class="text-base font-semibold text-primary mb-1">이 강의 학습 가이드</div>
                 <div class="text-sm text-secondary">강의 핵심 개념과 복습 포인트를 AI가 요약합니다.</div>
               </div>
-              <button class="btn btn-secondary btn-full" id="guideBtn" onclick="generateGuide()">
+              <button class="btn btn-primary btn-full" id="guideBtn" onclick="generateGuide()">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                 학습 가이드 생성하기
               </button>
@@ -282,9 +275,8 @@
     document.getElementById('mainContent').classList.remove('hidden');
     document.title = `LearnCraft — ${lec.date}`;
 
-    document.getElementById('breadcrumbDate').textContent = lec.date;
     document.getElementById('detailDate').textContent = lec.date;
-    document.getElementById('detailTitle').textContent = lec.subject || `강의 ${lec.date}`;
+    document.getElementById('detailTitle').textContent = lec.content || `강의 ${lec.date}`;
     document.getElementById('detailGoal').textContent = lec.learning_goal || '학습 목표 정보가 없습니다.';
 
     // Badges
