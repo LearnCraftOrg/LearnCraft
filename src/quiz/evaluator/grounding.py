@@ -229,12 +229,13 @@ def evaluate_grounding_set(quiz_set: dict) -> dict:
     retrieval_sources = quiz_set.get("retrieval_sources", [])
 
     t_set = time.perf_counter()
-    from concurrent.futures import ThreadPoolExecutor
-    with ThreadPoolExecutor(max_workers=5) as executor:
-        futures = [executor.submit(evaluate_grounding, quiz, retrieval_sources) for quiz in quizzes]
-        item_results = [f.result() for f in futures]
+    item_results = []
+    for i, quiz in enumerate(quizzes):
+        if i > 0:
+            time.sleep(4)  # Gemini free tier: 15 RPM 제한 대응
+        item_results.append(evaluate_grounding(quiz, retrieval_sources))
     failed = [r for r in item_results if not r["pass"]]
-    logger.debug("[TIMING] grounding 세트 전체 (%d문항, 병렬): %.2fs", len(quizzes), time.perf_counter()-t_set)
+    logger.debug("[TIMING] grounding 세트 전체 (%d문항, 순차): %.2fs", len(quizzes), time.perf_counter()-t_set)
 
     return {
         "quiz_set_id": quiz_set_id,

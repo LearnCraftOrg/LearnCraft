@@ -168,7 +168,7 @@ def _shuffle_mcq_options(result: dict) -> dict:
         if explanation:
             placeholder = {k: f"__LETTER_{k}__" for k in keys}
             for old, ph in placeholder.items():
-                explanation = re.sub(rf'\b{old}(?=[-는:])', ph, explanation)
+                explanation = re.sub(rf'\b{old}(?=[-는:가-힣])', ph, explanation)
             for old, ph in placeholder.items():
                 explanation = explanation.replace(ph, old_to_new[old])
             quiz["explanation"] = explanation

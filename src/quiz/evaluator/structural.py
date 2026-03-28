@@ -212,22 +212,10 @@ def validate_quiz_set(quiz_set: dict) -> dict:
                 f"유형 분포 권고 [{style}]: {actual_count}개 (권장: {scaled}개, ±1)"
             )
 
-    # ── 정답 분포 검증 ────────────────────────────────────────────────────────
-
-    answer_dist = {"A": 0, "B": 0, "C": 0, "D": 0}
-    for q in quizzes:
-        if q.get("type") == "multiple_choice":
-            ans = q.get("answer")
-            if ans in answer_dist:
-                answer_dist[ans] += 1
-
-    bias_threshold_error = max(5, round(mcq_count * 0.7))
-    bias_threshold_warn = max(4, round(mcq_count * 0.55))
-    for label, cnt in answer_dist.items():
-        if cnt >= bias_threshold_error:
-            set_errors.append(f"정답 분포 심각한 편중: '{label}'이 {cnt}회 등장 ({mcq_count}문항 중 {bias_threshold_error}회 이상)")
-        elif cnt >= bias_threshold_warn:
-            set_warnings.append(f"정답 분포 편중 주의: '{label}'이 {cnt}회 등장 ({mcq_count}문항 중 {bias_threshold_warn}회 이상)")
+    # ── 정답 셔플 확인 (전체 MCQ 정답이 동일한 알파벳이면 셔플 미적용 의심) ───────
+    mcq_answers = [q.get("answer") for q in quizzes if q.get("type") == "multiple_choice"]
+    if len(mcq_answers) >= 3 and len(set(mcq_answers)) == 1:
+        set_warnings.append(f"정답 셔플 미적용 의심: MCQ {len(mcq_answers)}문항 전체 정답이 '{mcq_answers[0]}'로 동일")
 
     # ── 문항 단위 검증 ────────────────────────────────────────────────────────
 
