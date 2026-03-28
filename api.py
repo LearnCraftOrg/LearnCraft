@@ -9,7 +9,9 @@ if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 import logging
+import re
 import time
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal, Optional
 
@@ -22,7 +24,44 @@ from pydantic import BaseModel
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="LearnCraft API", version="1.0.0")
+
+def _run_indexing():
+    """미인덱싱 강의를 벡터스토어에 추가."""
+    from src.ingestion.loader import get_available_dates, load_script, load_lecture_topics
+    from src.ingestion.chunker import chunk_text
+    from src.vectorstore.store import add_documents, get_indexed_dates
+
+    available = get_available_dates()
+    indexed = get_indexed_dates()
+    unindexed = [d for d in available if d not in indexed]
+
+    if not unindexed:
+        logger.info("모든 강의가 이미 인덱싱되어 있습니다.")
+        return
+
+    logger.info("인덱싱 시작: %d개 강의", len(unindexed))
+    for date in unindexed:
+        text = load_script(date)
+        if not text:
+            continue
+        headings = re.findall(r'^## (.+)', text, re.MULTILINE)
+        meta = {
+            "subject": "",
+            "content": load_lecture_topics(date),
+            "learning_goal": " / ".join(headings),
+        }
+        docs = chunk_text(text, {"date": date, **meta})
+        add_documents(docs)
+        logger.info("인덱싱 완료: %s (%d chunks)", date, len(docs))
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await asyncio.get_event_loop().run_in_executor(None, _run_indexing)
+    yield
+
+
+app = FastAPI(title="LearnCraft API", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -80,20 +119,22 @@ class PersonalizedGuideRequest(BaseModel):
 
 @app.get("/api/lectures")
 def list_lectures():
-    """인덱싱된 모든 강의 날짜와 커리큘럼 정보를 반환합니다."""
+    """모든 강의 날짜와 메타데이터를 반환합니다."""
     global _lecture_cache, _lecture_cache_time
     if _lecture_cache is not None and time.time() - _lecture_cache_time < CACHE_TTL:
         return _lecture_cache
-    from src.vectorstore.store import get_indexed_dates, get_stt_curriculum
-    dates = get_indexed_dates()
+    from src.ingestion.loader import get_available_dates, get_lecture_metadata
+    dates = get_available_dates()
     result = []
     for date in sorted(dates, reverse=True):
-        curriculum = get_stt_curriculum(date)
+        meta = get_lecture_metadata(date)
         result.append({
             "date": date,
-            "subject": curriculum.get("subject", ""),
-            "content": curriculum.get("content", ""),
-            "learning_goal": curriculum.get("learning_goal", ""),
+            "subject": meta.get("track", ""),
+            "content": meta.get("topic", ""),
+            "learning_goal": meta.get("learning_goal", ""),
+            "category": meta.get("category", ""),
+            "track": meta.get("track", ""),
         })
     _lecture_cache = result
     _lecture_cache_time = time.time()
@@ -103,15 +144,17 @@ def list_lectures():
 @app.get("/api/lectures/{date}")
 def get_lecture(date: str):
     """특정 날짜의 강의 상세 정보를 반환합니다."""
-    from src.vectorstore.store import get_stt_curriculum, is_date_indexed
-    if not is_date_indexed(date):
+    from src.ingestion.loader import load_script, get_lecture_metadata
+    if load_script(date) is None:
         raise HTTPException(status_code=404, detail=f"{date} 날짜의 강의를 찾을 수 없습니다.")
-    curriculum = get_stt_curriculum(date)
+    meta = get_lecture_metadata(date)
     return {
         "date": date,
-        "subject": curriculum.get("subject", ""),
-        "content": curriculum.get("content", ""),
-        "learning_goal": curriculum.get("learning_goal", ""),
+        "subject": meta.get("track", ""),
+        "content": meta.get("topic", ""),
+        "learning_goal": meta.get("learning_goal", ""),
+        "category": meta.get("category", ""),
+        "track": meta.get("track", ""),
     }
 
 
