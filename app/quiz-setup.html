@@ -328,14 +328,14 @@
     }
     container.innerHTML = list.map(l => {
       const checked = selectedDates.has(l.date);
-      return `<label class="lecture-item${checked ? ' selected' : ''}" onclick="toggleDate('${l.date}', this)">
-        <input type="checkbox" ${checked ? 'checked' : ''} onclick="event.stopPropagation()" onchange="toggleDate('${l.date}', this.closest('.lecture-item'))" />
+      return `<div class="lecture-item${checked ? ' selected' : ''}" onclick="toggleDate('${l.date}', this)">
+        <input type="checkbox" ${checked ? 'checked' : ''} onclick="event.stopPropagation(); toggleDate('${l.date}', this.closest('.lecture-item'))" />
         <div class="lecture-item-body">
-          <div class="lecture-item-date">${l.date}</div>
-          <div class="lecture-item-subject">${l.subject || '(제목 없음)'}</div>
+          <div class="lecture-item-date">${l.date}${l.track ? ` <span class="badge badge-muted" style="font-size:0.7rem;">${l.category} | ${l.track}</span>` : ''}</div>
+          <div class="lecture-item-subject">${l.content || '(제목 없음)'}</div>
           ${l.learning_goal ? `<div class="lecture-item-goal">${l.learning_goal}</div>` : ''}
         </div>
-      </label>`;
+      </div>`;
     }).join('');
   }
 
@@ -377,7 +377,9 @@
     if (!q) return allLectures;
     return allLectures.filter(l =>
       l.date.includes(q) ||
-      (l.subject && l.subject.toLowerCase().includes(q)) ||
+      (l.content && l.content.toLowerCase().includes(q)) ||
+      (l.track && l.track.toLowerCase().includes(q)) ||
+      (l.category && l.category.toLowerCase().includes(q)) ||
       (l.learning_goal && l.learning_goal.toLowerCase().includes(q))
     );
   }

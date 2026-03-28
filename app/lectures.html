@@ -69,9 +69,12 @@
         </div>
       </div>
 
-      <!-- Tabs: 전체 / 최근 7일 -->
+      <!-- Tabs: 전체 / 카테고리 / 최근 7일 -->
       <div class="tabs">
         <button class="tab-item active" onclick="setTab(this, 'all')">전체</button>
+        <button class="tab-item" onclick="setTab(this, '소프트웨어 개발')">소프트웨어 개발</button>
+        <button class="tab-item" onclick="setTab(this, '데이터, AI 및 사용자 경험')">데이터·AI·UX</button>
+        <button class="tab-item" onclick="setTab(this, '단기심화')">단기심화</button>
         <button class="tab-item" onclick="setTab(this, 'recent')">최근 7일</button>
       </div>
 
@@ -144,9 +147,10 @@
     const now = new Date();
 
     const filtered = lectures.filter(lec => {
-      const text = `${lec.date} ${lec.subject} ${lec.content} ${lec.learning_goal}`.toLowerCase();
+      const text = `${lec.date} ${lec.content} ${lec.track} ${lec.category} ${lec.learning_goal}`.toLowerCase();
       const daysDiff = (now - new Date(lec.date)) / (1000 * 60 * 60 * 24);
       if (currentTab === 'recent' && daysDiff > 7) return false;
+      if (currentTab !== 'all' && currentTab !== 'recent' && lec.category !== currentTab) return false;
       if (search && !text.includes(search)) return false;
       return true;
     });
@@ -158,12 +162,10 @@
       <div class="lecture-card">
         <div class="lecture-card-meta">
           <span class="lecture-date-chip">${lec.date}</span>
+          ${lec.track ? `<span class="badge badge-muted">${lec.category} | ${lec.track}</span>` : ''}
         </div>
-        <div class="lecture-card-title">${lec.subject || '강의 ' + lec.date}</div>
-        <div class="lecture-card-goal">${lec.learning_goal || lec.content || '학습 목표 정보 없음'}</div>
-        <div class="flex flex-wrap gap-2">
-          ${lec.content ? `<span class="badge badge-muted">${lec.content}</span>` : ''}
-        </div>
+        <div class="lecture-card-title">${lec.content || '강의 ' + lec.date}</div>
+        <div class="lecture-card-goal">${lec.learning_goal || '학습 목표 정보 없음'}</div>
         <div class="lecture-card-footer">
           <span class="text-xs text-muted"></span>
           <a href="lecture-detail.html?date=${lec.date}" class="btn btn-secondary btn-sm">상세 보기</a>
