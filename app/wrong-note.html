@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LearnCraft — 오답 노트</title>
+  <link rel="stylesheet" href="styles/base.css" />
+  <link rel="stylesheet" href="styles/layout.css" />
+  <link rel="stylesheet" href="styles/components.css" />
+  <style>
+    .wn-entry {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-4) var(--space-5);
+      margin-bottom: var(--space-3);
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-4);
+      transition: box-shadow 0.15s;
+    }
+    .wn-entry:hover { box-shadow: var(--shadow-sm); }
+    .wn-entry.selected { border-color: var(--color-primary); background: var(--color-primary-light, #EEF2FF); }
+
+    .wn-check { padding-top: 2px; flex-shrink: 0; }
+    .wn-check input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--color-primary); }
+
+    .wn-body { flex: 1; min-width: 0; }
+    .wn-question { font-size: var(--text-sm); font-weight: 500; color: var(--color-text-primary); margin-bottom: var(--space-2); line-height: 1.5; }
+    .wn-meta { display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: center; }
+    .wn-wrong-count { font-size: var(--text-xs); color: #B91C1C; font-weight: 600; }
+
+    /* Quiz player */
+    .quiz-player { display: none; }
+    .quiz-player.active { display: block; }
+    .list-view.hidden { display: none; }
+
+    .player-progress { margin-bottom: var(--space-4); }
+    .progress-bar-wrap { height: 6px; background: var(--color-border); border-radius: 99px; overflow: hidden; margin-bottom: var(--space-1); }
+    .progress-bar-fill { height: 100%; background: var(--color-primary); border-radius: 99px; transition: width 0.3s; }
+
+    .question-box { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-xl); padding: var(--space-6); margin-bottom: var(--space-4); }
+    .question-text { font-size: var(--text-base); font-weight: 600; color: var(--color-text-primary); line-height: 1.6; margin-bottom: var(--space-5); }
+
+    .option-btn { display: flex; align-items: center; gap: var(--space-3); width: 100%; text-align: left; padding: var(--space-3) var(--space-4); border: 1.5px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-bg); font-size: var(--text-sm); cursor: pointer; margin-bottom: var(--space-2); transition: border-color 0.15s, background 0.15s; }
+    .option-btn:hover:not(:disabled) { border-color: var(--color-primary); background: var(--color-primary-light, #EEF2FF); }
+    .option-btn.selected { border-color: var(--color-primary); background: var(--color-primary-light, #EEF2FF); }
+    .option-btn.correct { border-color: var(--color-success); background: var(--color-success-light); color: #15803D; }
+    .option-btn.wrong { border-color: var(--color-error, #EF4444); background: #FEF2F2; color: #B91C1C; }
+    .option-btn:disabled { cursor: default; }
+    .option-key { width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid currentColor; display: flex; align-items: center; justify-content: center; font-size: var(--text-xs); font-weight: 700; flex-shrink: 0; }
+
+    .short-answer-input { width: 100%; padding: var(--space-3) var(--space-4); border: 1.5px solid var(--color-border); border-radius: var(--radius-lg); font-size: var(--text-sm); background: var(--color-bg); box-sizing: border-box; }
+    .short-answer-input:focus { outline: none; border-color: var(--color-primary); }
+
+    .feedback-box { padding: var(--space-4); border-radius: var(--radius-lg); margin-top: var(--space-4); font-size: var(--text-sm); line-height: 1.6; }
+    .feedback-box.correct { background: var(--color-success-light); border: 1px solid var(--color-success); color: #15803D; }
+    .feedback-box.wrong { background: #FEF2F2; border: 1px solid #FCA5A5; color: #B91C1C; }
+
+    .player-nav { display: flex; gap: var(--space-3); margin-top: var(--space-4); }
+    .player-nav .btn { flex: 1; }
+
+    .score-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-xl); padding: var(--space-8); text-align: center; margin-bottom: var(--space-6); }
+    .score-big { font-size: 3rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1; margin-bottom: var(--space-2); }
+    .score-big.pass { color: var(--color-success); }
+    .score-big.review { color: var(--color-warning); }
+    .score-big.fail { color: var(--color-error, #EF4444); }
+
+    .empty-wn { text-align: center; padding: var(--space-16) var(--space-4); color: var(--color-text-secondary); }
+    .empty-wn svg { width: 48px; height: 48px; margin-bottom: var(--space-4); opacity: 0.4; }
+    .empty-wn h3 { font-size: var(--text-lg); font-weight: 600; margin-bottom: var(--space-2); }
+  </style>
+</head>
+<body>
+
+<!-- ─── Top Navigation ─── -->
+<nav class="top-nav">
+  <div class="top-nav-inner">
+    <a href="index.html" class="nav-logo-wrap">
+      <img src="../docs/img/RGB_LIKELION_KR.png" alt="Likelion" class="nav-logo" />
+      <span class="nav-logo-label">LearnCraft</span>
+    </a>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span>Dashboard</span>
+      </a>
+      <a href="lectures.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <span>강의 목록</span>
+      </a>
+      <a href="quiz-setup.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span>퀴즈 생성</span>
+      </a>
+      <a href="personalized-guide.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        <span>개인화 가이드</span>
+      </a>
+      <a href="wrong-note.html" class="nav-link active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        <span>오답 노트</span>
+      </a>
+      <a href="quality-report.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <span>품질 보고서</span>
+      </a>
+    </div>
+    <div class="nav-actions">
+      <a href="login.html" class="nav-btn-auth">로그인/회원가입</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ─── Page Content ─── -->
+<main>
+  <div class="container">
+    <div class="page-content">
+
+      <!-- ── LIST VIEW ── -->
+      <div class="list-view" id="listView">
+
+        <div class="page-header">
+          <div class="page-header-text">
+            <h1>오답 노트</h1>
+            <p>퀴즈에서 틀린 문제가 자동 저장됩니다. 선택해서 다시 풀고, 맞추면 자동으로 제거됩니다.</p>
+          </div>
+        </div>
+
+        <!-- 날짜 필터 -->
+        <div class="flex items-center gap-3 mb-5" id="filterRow" style="flex-wrap:wrap; display:none;">
+          <span class="text-sm text-secondary font-medium">강의 필터:</span>
+          <div id="dateFilterChips" class="flex gap-2" style="flex-wrap:wrap;"></div>
+          <button class="btn btn-ghost btn-sm" onclick="clearDateFilter()">전체 보기</button>
+        </div>
+
+        <!-- 로딩 -->
+        <div id="loadingState">
+          <div class="skeleton skeleton-card"></div>
+          <div class="skeleton skeleton-card"></div>
+        </div>
+
+        <!-- 비어있음 -->
+        <div class="empty-wn hidden" id="emptyState">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          <h3>저장된 오답이 없습니다</h3>
+          <p>퀴즈를 완료하면 틀린 문제가 자동으로 저장됩니다.</p>
+          <a href="quiz-setup.html" class="btn btn-primary" style="margin-top: var(--space-4); display:inline-flex;">퀴즈 시작하기</a>
+        </div>
+
+        <!-- 목록 -->
+        <div id="entryList" class="hidden"></div>
+
+        <!-- 액션 바 -->
+        <div class="action-bar hidden" id="actionBar">
+          <span class="text-sm text-secondary" id="selectedCount">0개 선택됨</span>
+          <div class="action-bar-spacer"></div>
+          <button class="btn btn-secondary" id="retrySelectedBtn" onclick="startQuiz('selected')" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 8 12 12 14 14"/></svg>
+            선택 문제 다시 풀기
+          </button>
+          <button class="btn btn-primary" onclick="startQuiz('all')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            전체 다시 풀기
+          </button>
+          <button class="btn btn-ghost" id="deleteSelectedBtn" onclick="deleteSelected()" disabled style="color: #B91C1C;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+            선택 삭제
+          </button>
+        </div>
+
+      </div><!-- /.list-view -->
+
+      <!-- ── QUIZ PLAYER ── -->
+      <div class="quiz-player" id="quizPlayer">
+
+        <nav class="breadcrumb">
+          <a href="#" onclick="backToList()">오답 노트</a>
+          <span class="breadcrumb-sep">›</span>
+          <span class="breadcrumb-current">다시 풀기</span>
+        </nav>
+
+        <!-- 진행 -->
+        <div class="player-progress">
+          <div class="progress-bar-wrap">
+            <div class="progress-bar-fill" id="progressFill" style="width:0%"></div>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-xs text-muted" id="progressLabel">1 / 1</span>
+            <span class="text-xs text-muted" id="scoreLabel">0점</span>
+          </div>
+        </div>
+
+        <!-- 문제 박스 -->
+        <div class="question-box" id="questionBox">
+          <div class="question-text" id="questionText"></div>
+          <div id="answerArea"></div>
+          <div class="feedback-box hidden" id="feedbackBox"></div>
+        </div>
+
+        <!-- 확인 / 이동 -->
+        <div class="player-nav">
+          <button class="btn btn-secondary" id="prevBtn" onclick="prevQuestion()" disabled>◀ 이전</button>
+          <button class="btn btn-primary" id="confirmBtn" onclick="confirmAnswer()">확인</button>
+          <button class="btn btn-secondary hidden" id="nextBtn" onclick="nextQuestion()">다음 ▶</button>
+        </div>
+
+        <!-- 최종 결과 -->
+        <div class="hidden" id="resultView">
+          <div class="score-card">
+            <div class="score-big" id="scoreBig"></div>
+            <div class="text-sm text-secondary" id="scoreDesc" style="margin-top: var(--space-2);"></div>
+          </div>
+          <div class="action-bar">
+            <button class="btn btn-secondary" onclick="retryQuiz()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+              다시 풀기
+            </button>
+            <div class="action-bar-spacer"></div>
+            <button class="btn btn-primary" onclick="backToList()">← 오답 노트로</button>
+          </div>
+        </div>
+
+      </div><!-- /.quiz-player -->
+
+    </div>
+  </div>
+</main>
+
+<script>
+  const API = 'http://localhost:8000';
+
+  // ── State ─────────────────────────────────────────────────────────────────
+  let allEntries = [];
+  let filteredEntries = [];
+  let selectedIds = new Set();
+  let activeDateFilter = null;
+
+  let quizItems = [];
+  let quizIdx = 0;
+  let quizAnswers = {};
+  let quizChecked = {};
+  let correctCount = 0;
+  let masteredIds = [];
+
+  // ── Load ──────────────────────────────────────────────────────────────────
+  async function loadEntries() {
+    document.getElementById('loadingState').classList.remove('hidden');
+    try {
+      const res = await fetch(`${API}/api/wrong-note`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      allEntries = await res.json();
+      renderList();
+    } catch (e) {
+      document.getElementById('loadingState').classList.add('hidden');
+      document.getElementById('emptyState').classList.remove('hidden');
+      document.getElementById('emptyState').querySelector('p').textContent = '서버에 연결할 수 없습니다. API 서버가 실행 중인지 확인하세요.';
+    }
+  }
+
+  function renderList() {
+    document.getElementById('loadingState').classList.add('hidden');
+
+    const entries = activeDateFilter
+      ? allEntries.filter(e => (e.lecture_dates || []).includes(activeDateFilter))
+      : allEntries;
+    filteredEntries = entries;
+
+    if (entries.length === 0) {
+      document.getElementById('emptyState').classList.remove('hidden');
+      document.getElementById('entryList').classList.add('hidden');
+      document.getElementById('actionBar').classList.add('hidden');
+      return;
+    }
+
+    document.getElementById('emptyState').classList.add('hidden');
+    document.getElementById('entryList').classList.remove('hidden');
+    document.getElementById('actionBar').classList.remove('hidden');
+
+    // 날짜 필터 칩
+    const allDates = [...new Set(allEntries.flatMap(e => e.lecture_dates || []))].sort().reverse();
+    if (allDates.length > 1) {
+      document.getElementById('filterRow').style.display = 'flex';
+      document.getElementById('dateFilterChips').innerHTML = allDates.map(d =>
+        `<button class="badge ${activeDateFilter === d ? 'badge-primary' : 'badge-muted'}"
+          style="cursor:pointer; border:none;"
+          onclick="setDateFilter('${d}')">${d}</button>`
+      ).join('');
+    }
+
+    document.getElementById('entryList').innerHTML = entries.map(e => {
+      const preview = e.question.length > 80 ? e.question.slice(0, 80) + '…' : e.question;
+      const dates = (e.lecture_dates || []).slice(0, 2).join(', ');
+      const isSelected = selectedIds.has(e.id);
+      return `
+        <div class="wn-entry ${isSelected ? 'selected' : ''}" id="entry-${e.id}">
+          <div class="wn-check">
+            <input type="checkbox" ${isSelected ? 'checked' : ''}
+              onchange="toggleSelect('${e.id}', this.checked)" />
+          </div>
+          <div class="wn-body">
+            <div class="wn-question">${preview}</div>
+            <div class="wn-meta">
+              <span class="badge badge-muted">${typeLabel(e.type)}</span>
+              ${dates ? `<span class="text-xs text-muted">${dates}</span>` : ''}
+              <span class="wn-wrong-count">틀린 횟수 ${e.wrong_count}회</span>
+              <span class="text-xs text-muted">${e.last_tried_at.slice(0,10)}</span>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+
+    updateActionBar();
+  }
+
+  function typeLabel(type) {
+    return { multiple_choice: '객관식', short_answer: '단답형', code_completion: '코드 완성' }[type] || type;
+  }
+
+  function toggleSelect(id, checked) {
+    if (checked) selectedIds.add(id); else selectedIds.delete(id);
+    const el = document.getElementById(`entry-${id}`);
+    if (el) el.classList.toggle('selected', checked);
+    updateActionBar();
+  }
+
+  function updateActionBar() {
+    const n = selectedIds.size;
+    document.getElementById('selectedCount').textContent = `${n}개 선택됨`;
+    document.getElementById('retrySelectedBtn').disabled = n === 0;
+    document.getElementById('deleteSelectedBtn').disabled = n === 0;
+  }
+
+  function setDateFilter(date) {
+    activeDateFilter = activeDateFilter === date ? null : date;
+    selectedIds.clear();
+    renderList();
+  }
+
+  function clearDateFilter() {
+    activeDateFilter = null;
+    selectedIds.clear();
+    renderList();
+  }
+
+  // ── Delete ────────────────────────────────────────────────────────────────
+  async function deleteSelected() {
+    if (selectedIds.size === 0) return;
+    const ids = [...selectedIds];
+    try {
+      await fetch(`${API}/api/wrong-note`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      });
+      selectedIds.clear();
+      await loadEntries();
+    } catch (e) {
+      alert('삭제 중 오류가 발생했습니다.');
+    }
+  }
+
+  // ── Quiz Player ───────────────────────────────────────────────────────────
+  function startQuiz(mode) {
+    const items = mode === 'selected'
+      ? filteredEntries.filter(e => selectedIds.has(e.id))
+      : filteredEntries;
+    if (items.length === 0) return;
+
+    quizItems = items;
+    quizIdx = 0;
+    quizAnswers = {};
+    quizChecked = {};
+    correctCount = 0;
+    masteredIds = [];
+
+    document.getElementById('listView').classList.add('hidden');
+    document.getElementById('quizPlayer').classList.add('active');
+    document.getElementById('resultView').classList.add('hidden');
+    document.getElementById('questionBox').classList.remove('hidden');
+    document.querySelector('.player-nav').classList.remove('hidden');
+
+    renderQuestion();
+  }
+
+  function renderQuestion() {
+    const q = quizItems[quizIdx];
+    const total = quizItems.length;
+    const pct = Math.round((quizIdx + 1) / total * 100);
+
+    document.getElementById('progressFill').style.width = pct + '%';
+    document.getElementById('progressLabel').textContent = `${quizIdx + 1} / ${total}`;
+    document.getElementById('scoreLabel').textContent = `${correctCount}점`;
+    document.getElementById('questionText').textContent = `Q${quizIdx + 1}. ${q.question}`;
+
+    const isChecked = quizChecked[quizIdx];
+    const answerArea = document.getElementById('answerArea');
+    const feedbackBox = document.getElementById('feedbackBox');
+    feedbackBox.classList.add('hidden');
+    feedbackBox.className = 'feedback-box hidden';
+
+    if (q.type === 'multiple_choice') {
+      const opts = q.options || {};
+      answerArea.innerHTML = Object.entries(opts).map(([k, v]) => `
+        <button class="option-btn ${isChecked ? 'disabled-opt' : ''}"
+          data-key="${k}"
+          onclick="${isChecked ? '' : `selectOption(this, '${k}')`}"
+          ${isChecked ? 'disabled' : ''}>
+          <span class="option-key">${k}</span>
+          <span>${v}</span>
+        </button>`).join('');
+
+      if (isChecked) applyOptionFeedback(q);
+      else if (quizAnswers[quizIdx]) {
+        const btn = answerArea.querySelector(`[data-key="${quizAnswers[quizIdx]}"]`);
+        if (btn) btn.classList.add('selected');
+      }
+    } else {
+      answerArea.innerHTML = `
+        <input type="text" class="short-answer-input" id="shortInput"
+          placeholder="답을 입력하세요"
+          value="${quizAnswers[quizIdx] || ''}"
+          ${isChecked ? 'disabled' : ''}
+          onkeydown="if(event.key==='Enter' && !${isChecked}) confirmAnswer()" />`;
+    }
+
+    if (isChecked) showFeedback(q);
+
+    // 버튼 상태
+    document.getElementById('prevBtn').disabled = quizIdx === 0;
+    document.getElementById('confirmBtn').classList.toggle('hidden', isChecked);
+    document.getElementById('nextBtn').classList.toggle('hidden', !isChecked || quizIdx === total - 1);
+  }
+
+  function selectOption(btn, key) {
+    document.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    quizAnswers[quizIdx] = key;
+  }
+
+  function confirmAnswer() {
+    const q = quizItems[quizIdx];
+    if (q.type === 'multiple_choice') {
+      if (!quizAnswers[quizIdx]) return;
+    } else {
+      const val = document.getElementById('shortInput')?.value.trim();
+      if (!val) return;
+      quizAnswers[quizIdx] = val;
+    }
+
+    quizChecked[quizIdx] = true;
+    const isCorrect = checkCorrect(q, quizAnswers[quizIdx]);
+    if (isCorrect) {
+      correctCount++;
+      if (q._wn_id || q.id) masteredIds.push(q._wn_id || q.id);
+    }
+
+    if (q.type === 'multiple_choice') applyOptionFeedback(q);
+    showFeedback(q);
+
+    document.getElementById('confirmBtn').classList.add('hidden');
+    document.getElementById('prevBtn').disabled = quizIdx === 0;
+
+    if (quizIdx < quizItems.length - 1) {
+      document.getElementById('nextBtn').classList.remove('hidden');
+    } else {
+      // 마지막 문제 → 결과
+      setTimeout(showResult, 600);
+    }
+  }
+
+  function checkCorrect(q, userAns) {
+    if (q.type === 'multiple_choice') {
+      return userAns && userAns.trim().toUpperCase() === q.answer.trim().toUpperCase();
+    }
+    return userAns && q.answer.toLowerCase().includes(userAns.toLowerCase());
+  }
+
+  function applyOptionFeedback(q) {
+    document.querySelectorAll('.option-btn').forEach(btn => {
+      const k = btn.dataset.key;
+      if (k === q.answer) btn.classList.add('correct');
+      else if (k === quizAnswers[quizIdx]) btn.classList.add('wrong');
+    });
+  }
+
+  function showFeedback(q) {
+    const isCorrect = checkCorrect(q, quizAnswers[quizIdx]);
+    const box = document.getElementById('feedbackBox');
+    box.classList.remove('hidden', 'correct', 'wrong');
+    box.classList.add(isCorrect ? 'correct' : 'wrong');
+    if (isCorrect) {
+      box.innerHTML = `✅ 정답! &nbsp;&nbsp;<span style="font-weight:400;">해설: ${q.explanation || ''}</span>`;
+    } else {
+      box.innerHTML = `❌ 오답 &nbsp;|&nbsp; 정답: <strong>${q.answer}</strong><br><span style="font-weight:400;">해설: ${q.explanation || ''}</span>`;
+    }
+  }
+
+  function prevQuestion() {
+    if (quizIdx > 0) { quizIdx--; renderQuestion(); }
+  }
+
+  function nextQuestion() {
+    if (quizIdx < quizItems.length - 1) { quizIdx++; renderQuestion(); }
+  }
+
+  async function showResult() {
+    // 정답 맞춘 문제 오답 노트에서 제거
+    if (masteredIds.length > 0) {
+      try {
+        await fetch(`${API}/api/wrong-note`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: masteredIds }),
+        });
+      } catch (_) {}
+    }
+
+    document.getElementById('questionBox').classList.add('hidden');
+    document.querySelector('.player-nav').classList.add('hidden');
+    document.getElementById('resultView').classList.remove('hidden');
+
+    const total = quizItems.length;
+    const pct = Math.round(correctCount / total * 100);
+    const big = document.getElementById('scoreBig');
+    big.textContent = `${pct}%`;
+    big.className = 'score-big ' + (pct >= 80 ? 'pass' : pct >= 60 ? 'review' : 'fail');
+    document.getElementById('scoreDesc').textContent =
+      `${total}문항 중 ${correctCount}개 정답 · ${masteredIds.length > 0 ? `${masteredIds.length}개가 오답 노트에서 제거됐습니다` : '틀린 문제는 오답 노트에 유지됩니다'}`;
+  }
+
+  function retryQuiz() {
+    quizIdx = 0;
+    quizAnswers = {};
+    quizChecked = {};
+    correctCount = 0;
+    masteredIds = [];
+    document.getElementById('resultView').classList.add('hidden');
+    document.getElementById('questionBox').classList.remove('hidden');
+    document.querySelector('.player-nav').classList.remove('hidden');
+    renderQuestion();
+  }
+
+  function backToList() {
+    document.getElementById('quizPlayer').classList.remove('active');
+    document.getElementById('listView').classList.remove('hidden');
+    selectedIds.clear();
+    loadEntries();
+  }
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  loadEntries();
+</script>
+
+</body>
+</html>

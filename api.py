@@ -125,6 +125,15 @@ class PersonalizedGuideRequest(BaseModel):
     query: str              # 틀린 개념 / 검색 쿼리
 
 
+class SaveWrongNoteRequest(BaseModel):
+    quiz_results: list[dict]
+    lecture_dates: list[str]
+
+
+class RemoveMasteredRequest(BaseModel):
+    ids: list[str]
+
+
 # ── Lecture endpoints ─────────────────────────────────────────────────────────
 
 @app.get("/api/lectures")
@@ -280,3 +289,28 @@ def list_reports():
             "created_at": f.stat().st_mtime,
         })
     return reports
+
+
+# ── Wrong note endpoints ───────────────────────────────────────────────────────
+
+@app.get("/api/wrong-note")
+def get_wrong_note():
+    """오답 노트 전체 목록을 반환합니다."""
+    from src.quiz.wrong_note import load_wrong_note
+    return load_wrong_note()
+
+
+@app.post("/api/wrong-note/save")
+def save_wrong_note(req: SaveWrongNoteRequest):
+    """퀴즈 오답을 오답 노트에 저장합니다."""
+    from src.quiz.wrong_note import save_wrong_answers
+    added = save_wrong_answers(req.quiz_results, req.lecture_dates)
+    return {"added": added}
+
+
+@app.delete("/api/wrong-note")
+def remove_from_wrong_note(req: RemoveMasteredRequest):
+    """오답 노트에서 선택한 항목을 제거합니다."""
+    from src.quiz.wrong_note import remove_mastered
+    remove_mastered(req.ids)
+    return {"removed": len(req.ids)}
