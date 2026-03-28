@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LearnCraft — 답안 피드백</title>
+  <link rel="stylesheet" href="styles/base.css" />
+  <link rel="stylesheet" href="styles/layout.css" />
+  <link rel="stylesheet" href="styles/components.css" />
+  <style>
+    .result-header {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-8);
+      margin-bottom: var(--space-8);
+      display: flex;
+      align-items: center;
+      gap: var(--space-6);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .result-icon {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .result-icon svg {
+      width: 36px;
+      height: 36px;
+    }
+
+    .result-icon.pass {
+      background: var(--color-success-light);
+      color: #15803D;
+      border: 3px solid var(--color-success);
+    }
+
+    .result-icon.review {
+      background: var(--color-warning-light);
+      color: #92400E;
+      border: 3px solid var(--color-warning);
+    }
+
+    .result-verdict {
+      font-size: var(--text-xl);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: var(--space-1);
+    }
+
+    .result-verdict.pass { color: #15803D; }
+    .result-verdict.review { color: #92400E; }
+  </style>
+</head>
+<body>
+
+<!-- ─── Top Navigation ─── -->
+<nav class="top-nav">
+  <div class="top-nav-inner">
+    <a href="index.html" class="nav-logo-wrap">
+      <img src="../docs/img/RGB_LIKELION_KR.png" alt="Likelion" class="nav-logo" />
+      <span class="nav-logo-label">LearnCraft</span>
+    </a>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span>Dashboard</span>
+      </a>
+      <a href="lectures.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <span>강의 목록</span>
+      </a>
+      <a href="quiz-setup.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span>퀴즈 생성</span>
+      </a>
+      <a href="personalized-guide.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        <span>개인화 가이드</span>
+      </a>
+      <a href="quality-report.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <span>품질 보고서</span>
+      </a>
+    </div>
+    <div class="nav-actions">
+      <a href="login.html" class="nav-btn-auth">로그인/회원가입</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ─── Page Content ─── -->
+<main>
+  <div class="container">
+    <div class="page-content">
+
+      <!-- Breadcrumb -->
+      <nav class="breadcrumb">
+        <a href="index.html">Dashboard</a>
+        <span class="breadcrumb-sep">›</span>
+        <a href="quiz-review.html">퀴즈 결과</a>
+        <span class="breadcrumb-sep">›</span>
+        <span class="breadcrumb-current">답안 피드백</span>
+      </nav>
+
+      <!-- Result Header -->
+      <div class="result-header">
+        <div class="result-icon review">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
+        <div style="flex:1;">
+          <div class="result-verdict review">복습이 필요합니다</div>
+          <div class="text-sm text-secondary" style="margin-bottom: var(--space-3);">10문항 중 7개 정답 (70%) · 파이썬 기초 — 리스트와 딕셔너리</div>
+          <div class="flex flex-wrap gap-2">
+            <span class="badge badge-error badge-dot">오답 3개</span>
+            <span class="badge badge-muted">딕셔너리 메서드 취약</span>
+            <span class="badge badge-muted">단답형 주의 필요</span>
+          </div>
+        </div>
+        <div style="text-align:right; flex-shrink:0;">
+          <div style="font-size: var(--text-3xl); font-weight: 800; color: var(--color-warning); letter-spacing: -0.03em; line-height:1;">70%</div>
+          <div class="text-xs text-muted" style="margin-top:2px;">정답률</div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs" id="tabStrip">
+        <button class="tab-item active" onclick="setTab(this, 'all')">전체 문항 <span class="badge badge-muted" style="margin-left:4px;">10</span></button>
+        <button class="tab-item" onclick="setTab(this, 'wrong')">오답만 보기 <span class="badge badge-error" style="margin-left:4px;">3</span></button>
+      </div>
+
+      <!-- Answer Cards -->
+      <div id="cardList">
+
+        <!-- Q1 correct -->
+        <div class="feedback-card correct" data-result="correct">
+          <div class="feedback-card-header">
+            <div>
+              <div class="question-meta" style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                <span class="text-xs text-muted font-medium">Q1</span>
+                <span class="badge badge-muted">객관식</span>
+              </div>
+              <div class="text-sm font-medium text-primary">파이썬 리스트에서 마지막 원소를 제거하고 반환하는 메서드는?</div>
+            </div>
+            <div class="feedback-card-status">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              정답
+            </div>
+          </div>
+          <div class="feedback-card-body">
+            <div class="flex items-center gap-3 mb-3">
+              <span style="font-size:var(--text-xs); color:#15803D; font-weight:600;">✓ 정답: C) pop()</span>
+            </div>
+            <button class="explanation-toggle" onclick="toggleExp(this)">
+              해설 보기
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="explanation-block">
+              <code>list.pop()</code>은 마지막 원소를 제거하고 반환합니다. <code>pop(index)</code>로 특정 위치도 제거 가능합니다.
+            </div>
+          </div>
+        </div>
+
+        <!-- Q2 wrong -->
+        <div class="feedback-card wrong" data-result="wrong">
+          <div class="feedback-card-header">
+            <div>
+              <div class="question-meta" style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                <span class="text-xs text-muted font-medium">Q2</span>
+                <span class="badge badge-muted">객관식</span>
+              </div>
+              <div class="text-sm font-medium text-primary">딕셔너리에서 존재하지 않는 키에 접근 시 기본값을 반환하는 메서드는?</div>
+            </div>
+            <div class="feedback-card-status">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              오답
+            </div>
+          </div>
+          <div class="feedback-card-body">
+            <div class="flex items-center gap-3 mb-3">
+              <span style="font-size:var(--text-xs); color:#B91C1C; font-weight:600;">✗ 내 답: A) dict.find(key)</span>
+              <span class="text-muted">·</span>
+              <span style="font-size:var(--text-xs); color:#15803D; font-weight:600;">✓ 정답: B) dict.get(key, default)</span>
+            </div>
+            <button class="explanation-toggle" onclick="toggleExp(this)">
+              해설 보기
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="explanation-block">
+              <strong>dict.get(key, default)</strong>는 키가 없을 때 <code>KeyError</code> 대신 지정한 기본값을 반환합니다. <code>find()</code>는 딕셔너리 메서드가 아닙니다.
+            </div>
+          </div>
+        </div>
+
+        <!-- Q3 correct -->
+        <div class="feedback-card correct" data-result="correct">
+          <div class="feedback-card-header">
+            <div>
+              <div class="question-meta" style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                <span class="text-xs text-muted font-medium">Q3</span>
+                <span class="badge badge-muted">객관식</span>
+              </div>
+              <div class="text-sm font-medium text-primary">리스트 컴프리헨션의 올바른 사용법은?</div>
+            </div>
+            <div class="feedback-card-status">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              정답
+            </div>
+          </div>
+          <div class="feedback-card-body">
+            <div class="flex items-center gap-3 mb-3">
+              <span style="font-size:var(--text-xs); color:#15803D; font-weight:600;">✓ 정답: B) [x*2 for x in range(5)]</span>
+            </div>
+            <button class="explanation-toggle" onclick="toggleExp(this)">
+              해설 보기
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="explanation-block">
+              리스트 컴프리헨션은 대괄호 <code>[ ]</code>를 사용합니다. <code>{ }</code>는 집합/딕셔너리, <code>( )</code>는 제너레이터입니다.
+            </div>
+          </div>
+        </div>
+
+        <!-- Q4 wrong -->
+        <div class="feedback-card wrong" data-result="wrong">
+          <div class="feedback-card-header">
+            <div>
+              <div class="question-meta" style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                <span class="text-xs text-muted font-medium">Q4</span>
+                <span class="badge badge-accent">단답형</span>
+              </div>
+              <div class="text-sm font-medium text-primary">딕셔너리에서 모든 키를 반환하는 메서드를 작성하세요.</div>
+            </div>
+            <div class="feedback-card-status">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              오답
+            </div>
+          </div>
+          <div class="feedback-card-body">
+            <div class="flex items-center gap-3 mb-3">
+              <span style="font-size:var(--text-xs); color:#B91C1C; font-weight:600;">✗ 내 답: dict.keys</span>
+              <span class="text-muted">·</span>
+              <span style="font-size:var(--text-xs); color:#15803D; font-weight:600;">✓ 정답: dict.keys()</span>
+            </div>
+            <button class="explanation-toggle" onclick="toggleExp(this)">
+              해설 보기
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="explanation-block">
+              <code>dict.keys()</code>처럼 반드시 괄호를 붙여야 메서드가 호출됩니다. 괄호 없이 <code>dict.keys</code>는 메서드 객체 자체를 참조합니다.
+            </div>
+          </div>
+        </div>
+
+        <!-- Q5 correct -->
+        <div class="feedback-card correct" data-result="correct">
+          <div class="feedback-card-header">
+            <div>
+              <div class="question-meta" style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                <span class="text-xs text-muted font-medium">Q5</span>
+                <span class="badge badge-primary">코드 완성</span>
+              </div>
+              <div class="text-sm font-medium text-primary">빈칸을 채워 1~10의 짝수 리스트를 만드세요.</div>
+            </div>
+            <div class="feedback-card-status">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              정답
+            </div>
+          </div>
+          <div class="feedback-card-body">
+            <div class="flex items-center gap-3 mb-3">
+              <span style="font-size:var(--text-xs); color:#15803D; font-weight:600;">✓ 정답: if x % 2 == 0</span>
+            </div>
+            <button class="explanation-toggle" onclick="toggleExp(this)">
+              해설 보기
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="explanation-block">
+              <code>x % 2 == 0</code>은 x가 짝수임을 의미합니다. 리스트 컴프리헨션의 조건절로 사용하면 짝수만 필터링됩니다.
+            </div>
+          </div>
+        </div>
+
+        <!-- Q6 correct -->
+        <div class="feedback-card correct" data-result="correct">
+          <div class="feedback-card-header">
+            <div>
+              <div class="question-meta" style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                <span class="text-xs text-muted font-medium">Q6</span>
+                <span class="badge badge-muted">객관식</span>
+              </div>
+              <div class="text-sm font-medium text-primary">튜플(tuple)과 리스트(list)의 가장 큰 차이점은?</div>
+            </div>
+            <div class="feedback-card-status">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              정답
+            </div>
+          </div>
+          <div class="feedback-card-body">
+            <div class="flex items-center gap-3 mb-3">
+              <span style="font-size:var(--text-xs); color:#15803D; font-weight:600;">✓ 정답: B) 튜플은 변경 불가(immutable)이다</span>
+            </div>
+            <button class="explanation-toggle" onclick="toggleExp(this)">
+              해설 보기
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="explanation-block">
+              튜플은 한 번 생성되면 요소를 추가·수정·삭제할 수 없는 불변(immutable) 자료구조입니다. 리스트는 가변(mutable)입니다.
+            </div>
+          </div>
+        </div>
+
+        <!-- Q7–10 correct (abbreviated) -->
+        <div class="feedback-card correct" data-result="correct">
+          <div class="feedback-card-header">
+            <div>
+              <div class="question-meta" style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                <span class="text-xs text-muted font-medium">Q7</span>
+                <span class="badge badge-muted">객관식</span>
+              </div>
+              <div class="text-sm font-medium text-primary">딕셔너리의 <code>update()</code> 메서드의 역할은?</div>
+            </div>
+            <div class="feedback-card-status">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              정답
+            </div>
+          </div>
+          <div class="feedback-card-body">
+            <div class="flex items-center gap-3 mb-3">
+              <span style="font-size:var(--text-xs); color:#15803D; font-weight:600;">✓ 정답: A) 다른 딕셔너리의 키-값 쌍을 추가/수정한다</span>
+            </div>
+            <button class="explanation-toggle" onclick="toggleExp(this)">
+              해설 보기
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="explanation-block">
+              <code>dict.update(other)</code>는 <code>other</code> 딕셔너리의 내용을 현재 딕셔너리에 병합합니다. 기존 키가 있으면 덮어씁니다.
+            </div>
+          </div>
+        </div>
+
+        <!-- Q8 wrong -->
+        <div class="feedback-card wrong" data-result="wrong">
+          <div class="feedback-card-header">
+            <div>
+              <div class="question-meta" style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                <span class="text-xs text-muted font-medium">Q8</span>
+                <span class="badge badge-accent">단답형</span>
+              </div>
+              <div class="text-sm font-medium text-primary">리스트에서 특정 값의 인덱스를 반환하는 메서드는?</div>
+            </div>
+            <div class="feedback-card-status">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              오답
+            </div>
+          </div>
+          <div class="feedback-card-body">
+            <div class="flex items-center gap-3 mb-3">
+              <span style="font-size:var(--text-xs); color:#B91C1C; font-weight:600;">✗ 내 답: find()</span>
+              <span class="text-muted">·</span>
+              <span style="font-size:var(--text-xs); color:#15803D; font-weight:600;">✓ 정답: index()</span>
+            </div>
+            <button class="explanation-toggle" onclick="toggleExp(this)">
+              해설 보기
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="explanation-block">
+              <code>list.index(value)</code>는 리스트에서 해당 값의 첫 번째 인덱스를 반환합니다. <code>find()</code>는 문자열(str)의 메서드입니다.
+            </div>
+          </div>
+        </div>
+
+        <div class="feedback-card correct" data-result="correct">
+          <div class="feedback-card-header">
+            <div>
+              <div class="question-meta" style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                <span class="text-xs text-muted font-medium">Q9</span>
+                <span class="badge badge-muted">객관식</span>
+              </div>
+              <div class="text-sm font-medium text-primary">리스트 슬라이싱 <code>a[1:4]</code>의 결과로 맞는 것은? (a = [0,1,2,3,4])</div>
+            </div>
+            <div class="feedback-card-status">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              정답
+            </div>
+          </div>
+          <div class="feedback-card-body">
+            <div class="flex items-center gap-3 mb-3">
+              <span style="font-size:var(--text-xs); color:#15803D; font-weight:600;">✓ 정답: C) [1, 2, 3]</span>
+            </div>
+            <button class="explanation-toggle" onclick="toggleExp(this)">
+              해설 보기
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="explanation-block">
+              슬라이싱 <code>a[start:end]</code>는 start 인덱스부터 end-1 인덱스까지 반환합니다. <code>a[1:4]</code>는 인덱스 1, 2, 3에 해당하는 <code>[1, 2, 3]</code>을 반환합니다.
+            </div>
+          </div>
+        </div>
+
+        <div class="feedback-card correct" data-result="correct">
+          <div class="feedback-card-header">
+            <div>
+              <div class="question-meta" style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                <span class="text-xs text-muted font-medium">Q10</span>
+                <span class="badge badge-muted">객관식</span>
+              </div>
+              <div class="text-sm font-medium text-primary">딕셔너리에서 키-값 쌍을 순회할 때 사용하는 메서드는?</div>
+            </div>
+            <div class="feedback-card-status">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              정답
+            </div>
+          </div>
+          <div class="feedback-card-body">
+            <div class="flex items-center gap-3 mb-3">
+              <span style="font-size:var(--text-xs); color:#15803D; font-weight:600;">✓ 정답: B) .items()</span>
+            </div>
+            <button class="explanation-toggle" onclick="toggleExp(this)">
+              해설 보기
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="explanation-block">
+              <code>dict.items()</code>는 <code>(key, value)</code> 튜플 쌍을 반환합니다. <code>for k, v in d.items()</code> 패턴으로 자주 사용됩니다.
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /#cardList -->
+
+      <!-- Recommended Study Areas -->
+      <div class="study-rec-section">
+        <div class="study-rec-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline; vertical-align: middle; margin-right:6px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          추천 복습 영역
+        </div>
+        <div class="text-sm text-secondary" style="margin-bottom: var(--space-3);">오답을 분석한 결과, 아래 개념에 대한 추가 학습을 권장합니다.</div>
+        <div class="concept-list" style="margin-bottom: var(--space-4);">
+          <span class="badge badge-error">딕셔너리 메서드 (get, find 혼동)</span>
+          <span class="badge badge-warning">메서드 호출 문법 (괄호 누락)</span>
+          <span class="badge badge-warning">리스트 메서드 vs 문자열 메서드</span>
+          <span class="badge badge-muted">단답형 정확한 표기</span>
+        </div>
+        <a href="personalized-guide.html" class="btn btn-primary" onclick="saveWrongConceptsAndGo(event)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          개인화 학습 가이드 시작
+        </a>
+      </div>
+
+      <!-- Action Bar -->
+      <div class="action-bar">
+        <a href="quiz-review.html" class="btn btn-secondary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          결과 요약으로
+        </a>
+        <div class="action-bar-spacer"></div>
+        <a href="quiz-setup.html" class="btn btn-secondary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          다시 풀기
+        </a>
+        <a href="index.html" class="btn btn-ghost">대시보드</a>
+      </div>
+
+    </div><!-- /.page-content -->
+  </div><!-- /.container -->
+</main>
+
+<script>
+  let currentTab = 'all';
+
+  function setTab(el, tab) {
+    document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    currentTab = tab;
+    filterCards();
+  }
+
+  function filterCards() {
+    document.querySelectorAll('#cardList .feedback-card').forEach(card => {
+      if (currentTab === 'wrong') {
+        card.style.display = card.dataset.result === 'wrong' ? '' : 'none';
+      } else {
+        card.style.display = '';
+      }
+    });
+  }
+
+  function toggleExp(btn) {
+    btn.classList.toggle('open');
+    const block = btn.nextElementSibling;
+    block.classList.toggle('open');
+    btn.childNodes[0].textContent = block.classList.contains('open') ? '해설 닫기 ' : '해설 보기 ';
+  }
+
+  function saveWrongConceptsAndGo(e) {
+    // 오답 카드의 뱃지 텍스트를 모아 localStorage에 저장
+    const wrongConcepts = [];
+    document.querySelectorAll('#cardList .feedback-card[data-result="wrong"]').forEach(card => {
+      const q = card.querySelector('.feedback-question');
+      if (q) wrongConcepts.push(q.textContent.trim().slice(0, 80));
+    });
+    if (wrongConcepts.length > 0) {
+      localStorage.setItem('lc_wrong_concepts', JSON.stringify(wrongConcepts));
+    }
+    // 기본 링크 이동 허용
+  }
+</script>
+
+</body>
+</html>

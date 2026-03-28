@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LearnCraft — 퀴즈 풀기</title>
+  <link rel="stylesheet" href="styles/base.css" />
+  <link rel="stylesheet" href="styles/layout.css" />
+  <link rel="stylesheet" href="styles/components.css" />
+  <style>
+    .quiz-wrap { max-width: 720px; margin: 0 auto; }
+
+    /* 진행 헤더 */
+    .quiz-progress-bar {
+      position: sticky; top: 56px; z-index: 10;
+      background: var(--color-surface);
+      border-bottom: 1px solid var(--color-border);
+      padding: var(--space-3) var(--space-4);
+    }
+    .quiz-progress-top {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: var(--space-2);
+    }
+    .quiz-progress-label { font-size: var(--text-sm); font-weight: 600; color: var(--color-text); }
+    .timer-display {
+      display: flex; align-items: center; gap: var(--space-2);
+      font-size: var(--text-sm); font-weight: 700;
+      color: var(--color-primary);
+      background: var(--color-primary-light);
+      border: 1px solid #C7D2FE;
+      border-radius: var(--radius-full);
+      padding: 4px 12px;
+    }
+    .timer-display.warning { color: #B45309; background: #FFFBEB; border-color: #FDE68A; }
+    .timer-display.danger  { color: #B91C1C; background: #FEF2F2; border-color: #FECACA; animation: pulse 1s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.6} }
+    .progress-track {
+      height: 6px; background: var(--color-border);
+      border-radius: 999px; overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%; background: var(--color-primary);
+      border-radius: 999px; transition: width 0.3s ease;
+    }
+
+    /* 문제 dot navigator */
+    .question-dots {
+      display: flex; flex-wrap: wrap; gap: 6px;
+      margin: var(--space-4) 0;
+    }
+    .q-dot {
+      width: 28px; height: 28px; border-radius: 50%;
+      border: 2px solid var(--color-border);
+      font-size: var(--text-xs); font-weight: 600;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all 0.15s;
+      color: var(--color-text-muted);
+    }
+    .q-dot.answered { border-color: var(--color-primary); color: var(--color-primary); background: var(--color-primary-light); }
+    .q-dot.current  { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
+    .q-dot.correct  { background: var(--color-success); border-color: var(--color-success); color: #fff; }
+    .q-dot.wrong    { background: var(--color-error);   border-color: var(--color-error);   color: #fff; }
+
+    /* 답 선택 */
+    .answer-option { cursor: pointer; }
+    .answer-option.selected { border-color: var(--color-primary); background: var(--color-primary-light); }
+    .answer-option.selected .answer-key { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
+
+    .short-input {
+      width: 100%; padding: var(--space-3) var(--space-4);
+      border: 1px solid var(--color-border-strong); border-radius: var(--radius-md);
+      font-size: var(--text-sm); outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .short-input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(79,70,229,.12); }
+
+    .code-input {
+      width: 100%; padding: var(--space-3) var(--space-4);
+      background: #0F172A; border: 1px solid #334155; border-radius: var(--radius-md);
+      font-family: 'Courier New', Courier, monospace; font-size: var(--text-sm); color: #E2E8F0;
+      outline: none; resize: vertical; min-height: 72px;
+      transition: border-color 0.15s;
+    }
+    .code-input:focus { border-color: var(--color-primary); }
+
+    /* 이전/다음 버튼 */
+    .quiz-nav {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-top: var(--space-6);
+      gap: var(--space-3);
+    }
+
+    /* 제출 후 점수 패널 */
+    #scorePanelWrap { display: none; margin-bottom: var(--space-6); }
+
+    /* 문제 카드 전환 */
+    .question-card { display: none; }
+    .question-card.active { display: block; }
+
+    /* 경고 배너 */
+    #warnBanner {
+      display: none;
+      background: #FFFBEB; border: 1px solid #FDE68A;
+      border-radius: var(--radius-md); padding: var(--space-3) var(--space-4);
+      font-size: var(--text-sm); color: #92400E;
+      margin-bottom: var(--space-4);
+    }
+  </style>
+</head>
+<body>
+
+<nav class="top-nav">
+  <div class="top-nav-inner">
+    <a href="index.html" class="nav-logo-wrap">
+      <img src="../docs/img/RGB_LIKELION_KR.png" alt="Likelion" class="nav-logo" />
+      <span class="nav-logo-label">LearnCraft</span>
+    </a>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span>Dashboard</span>
+      </a>
+      <a href="lectures.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <span>강의 목록</span>
+      </a>
+      <a href="quiz-setup.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span>퀴즈 생성</span>
+      </a>
+      <a href="personalized-guide.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        <span>개인화 가이드</span>
+      </a>
+      <a href="quality-report.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <span>품질 보고서</span>
+      </a>
+    </div>
+    <div class="nav-actions">
+      <a href="login.html" class="nav-btn-auth">로그인/회원가입</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <div class="container">
+    <div class="page-content">
+
+      <!-- No data -->
+      <div class="card hidden" id="noDataState">
+        <div class="empty-state">
+          <div class="empty-state-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </div>
+          <h3>퀴즈 데이터가 없습니다</h3>
+          <p>먼저 퀴즈를 생성해주세요.</p>
+          <a href="quiz-setup.html" class="btn btn-primary">퀴즈 생성하기</a>
+        </div>
+      </div>
+
+      <!-- Main quiz -->
+      <div id="quizContent" class="hidden">
+
+        <!-- Sticky progress bar -->
+        <div class="quiz-progress-bar">
+          <div class="quiz-progress-top">
+            <span class="quiz-progress-label" id="progressLabel">1 / 10</span>
+            <div id="timerDisplay" class="timer-display" style="display:none;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span id="timerText">00:00</span>
+            </div>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" id="progressFill" style="width:0%"></div>
+          </div>
+        </div>
+
+        <div class="quiz-wrap" style="padding-top:var(--space-6);">
+
+          <nav class="breadcrumb" style="margin-bottom:var(--space-4);">
+            <a href="index.html">Dashboard</a>
+            <span class="breadcrumb-sep">›</span>
+            <a href="quiz-setup.html">퀴즈 생성</a>
+            <span class="breadcrumb-sep">›</span>
+            <span class="breadcrumb-current" id="quizBreadcrumb">퀴즈</span>
+          </nav>
+
+          <!-- Score panel (after submit) -->
+          <div id="scorePanelWrap">
+            <div class="score-bar">
+              <div class="score-circle">
+                <svg class="score-ring" viewBox="0 0 80 80" width="80" height="80" aria-hidden="true">
+                  <circle class="score-ring-bg"
+                          cx="40" cy="40" r="32"
+                          fill="none" stroke="var(--color-primary-light)" stroke-width="8"/>
+                  <circle class="score-ring-fill" id="scoreRingFill"
+                          cx="40" cy="40" r="32"
+                          fill="none" stroke="var(--color-primary)" stroke-width="8"
+                          stroke-linecap="round"
+                          stroke-dasharray="201.06"
+                          stroke-dashoffset="201.06"
+                          transform="rotate(-90 40 40)"/>
+                </svg>
+                <div class="score-circle-text">
+                  <span class="score-percent" id="scorePercent">0%</span>
+                  <span class="score-label">정답률</span>
+                </div>
+              </div>
+              <div class="score-stats">
+                <div class="score-stat-item">
+                  <span class="score-stat-value" id="scoreTotal">0</span>
+                  <span class="score-stat-label">총 문항</span>
+                </div>
+                <div class="score-stat-item">
+                  <span class="score-stat-value green" id="scoreCorrect">0</span>
+                  <span class="score-stat-label">정답</span>
+                </div>
+                <div class="score-stat-item">
+                  <span class="score-stat-value red" id="scoreWrong">0</span>
+                  <span class="score-stat-label">오답</span>
+                </div>
+              </div>
+              <a href="quiz-feedback.html" class="btn btn-primary" style="flex-shrink:0;">
+                상세 피드백 보기
+              </a>
+            </div>
+          </div>
+
+          <!-- 문제 dot 네비게이터 -->
+          <div class="question-dots" id="questionDots"></div>
+
+          <!-- 경고 배너 -->
+          <div id="warnBanner"></div>
+
+          <!-- 문제 카드들 -->
+          <div id="questionList"></div>
+
+          <!-- 이전/다음 버튼 -->
+          <div class="quiz-nav" id="quizNav">
+            <button class="btn btn-secondary" id="prevBtn" onclick="goQuestion(currentIdx - 1)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+              이전
+            </button>
+            <a href="quiz-setup.html" class="btn btn-ghost" style="font-size:var(--text-sm);">다시 생성</a>
+            <button class="btn btn-primary" id="nextBtn" onclick="handleNextOrSubmit()">
+              다음
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<script>
+  const API = 'http://localhost:8000';
+  const TYPE_LABEL = { multiple_choice: '객관식', short_answer: '단답형', code_completion: '코드 완성' };
+  const TYPE_BADGE = { multiple_choice: 'badge-muted', short_answer: 'badge-accent', code_completion: 'badge-primary' };
+  const DIFF_LABEL = { easy: '쉬움', medium: '중간', hard: '어려움' };
+
+  let quizData = null;
+  let evalResults = null;
+  let submitted = false;
+  let currentIdx = 0;
+  let answers = {};        // { quiz_id: value }
+  let timerSec = 0;
+  let timerInterval = null;
+
+  function init() {
+    const raw = localStorage.getItem('lc_quiz');
+    if (!raw) { document.getElementById('noDataState').classList.remove('hidden'); return; }
+
+    quizData = JSON.parse(raw);
+    document.getElementById('quizContent').classList.remove('hidden');
+
+    const date = quizData.lecture_date || '';
+    const diff = DIFF_LABEL[quizData.difficulty] || quizData.difficulty || '';
+    document.getElementById('quizBreadcrumb').textContent = `퀴즈 · ${date}`;
+
+    renderAllCards();
+    renderDots();
+    goQuestion(0);
+
+    // 타이머
+    timerSec = quizData.timeLimit || 0;
+    if (timerSec > 0) {
+      document.getElementById('timerDisplay').style.display = 'flex';
+      updateTimerDisplay();
+      timerInterval = setInterval(tickTimer, 1000);
+    }
+  }
+
+  // ── 타이머 ────────────────────────────────────────────────
+  function tickTimer() {
+    timerSec--;
+    updateTimerDisplay();
+    if (timerSec <= 0) {
+      clearInterval(timerInterval);
+      submitQuiz(true);
+    }
+  }
+
+  function updateTimerDisplay() {
+    const m = Math.floor(Math.abs(timerSec) / 60);
+    const s = Math.abs(timerSec) % 60;
+    document.getElementById('timerText').textContent =
+      String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+    const el = document.getElementById('timerDisplay');
+    el.className = 'timer-display';
+    if (timerSec <= 60)      el.classList.add('danger');
+    else if (timerSec <= 180) el.classList.add('warning');
+  }
+
+  // ── 렌더링 ────────────────────────────────────────────────
+  function renderAllCards() {
+    document.getElementById('questionList').innerHTML =
+      quizData.quizzes.map((q, i) => buildCard(q, i)).join('');
+  }
+
+  function renderDots() {
+    document.getElementById('questionDots').innerHTML =
+      quizData.quizzes.map((q, i) =>
+        `<div class="q-dot" id="dot_${i}" onclick="goQuestion(${i})">${i + 1}</div>`
+      ).join('');
+  }
+
+  function buildCard(q, i) {
+    const typeBadge = `<span class="badge ${TYPE_BADGE[q.type] || 'badge-muted'}">${TYPE_LABEL[q.type] || q.type}</span>`;
+    let bodyHtml = '';
+
+    if (q.type === 'multiple_choice') {
+      const opts = q.options || {};
+      bodyHtml = `<div class="answer-options" id="opts_${q.quiz_id}">` +
+        ['A','B','C','D'].map(k => opts[k] ? `
+          <div class="answer-option" data-key="${k}" onclick="selectOption('${q.quiz_id}','${k}')">
+            <div class="answer-key">${k}</div>
+            <div class="answer-text">${escHtml(opts[k])}</div>
+          </div>` : '').join('') +
+        '</div>';
+
+    } else if (q.type === 'short_answer') {
+      bodyHtml = `<input class="short-input" id="ans_${q.quiz_id}" type="text"
+        placeholder="답을 입력하세요..."
+        oninput="saveTextAnswer('${q.quiz_id}', this.value)" />`;
+
+    } else if (q.type === 'code_completion') {
+      bodyHtml = `
+        <div class="code-block" style="margin-bottom:var(--space-3);">
+          <div class="code-lang">${escHtml(q.language || 'Python')}</div>
+          <pre style="white-space:pre-wrap;">${escHtml(q.code_template || '')}</pre>
+        </div>
+        <textarea class="code-input" id="ans_${q.quiz_id}"
+          placeholder="빈칸(___)에 들어갈 코드를 입력하세요..."
+          oninput="saveTextAnswer('${q.quiz_id}', this.value)"></textarea>`;
+    }
+
+    const explanationHtml = `
+      <div style="margin-top:var(--space-3);" id="expWrap_${q.quiz_id}" class="hidden">
+        <button class="explanation-toggle" id="expBtn_${q.quiz_id}" onclick="toggleExp('${q.quiz_id}')">
+          해설 보기
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="explanation-block" id="exp_${q.quiz_id}"></div>
+      </div>`;
+
+    return `
+      <div class="question-card" id="card_${i}">
+        <div class="card" style="padding:var(--space-6);">
+          <div class="question-card-header">
+            <span class="question-number">${i + 1}</span>
+            <div style="flex:1;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                ${typeBadge}
+                <span class="result-badge hidden" id="badge_${q.quiz_id}"></span>
+              </div>
+              <div class="question-text">${escHtml(q.question)}</div>
+            </div>
+          </div>
+          <div class="question-card-body">
+            ${bodyHtml}
+            ${explanationHtml}
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // ── 네비게이션 ────────────────────────────────────────────
+  function goQuestion(idx) {
+    if (idx < 0 || idx >= quizData.quizzes.length) return;
+
+    // 현재 카드 숨기기
+    document.getElementById(`card_${currentIdx}`)?.classList.remove('active');
+    document.getElementById(`dot_${currentIdx}`)?.classList.remove('current');
+
+    currentIdx = idx;
+
+    // 새 카드 표시
+    document.getElementById(`card_${currentIdx}`).classList.add('active');
+    const dot = document.getElementById(`dot_${currentIdx}`);
+    dot.classList.add('current');
+    dot.classList.remove('answered');
+
+    // 이전 버튼
+    document.getElementById('prevBtn').disabled = (currentIdx === 0);
+
+    // 다음/제출 버튼
+    const nextBtn = document.getElementById('nextBtn');
+    const isLast = currentIdx === quizData.quizzes.length - 1;
+    if (submitted) {
+      nextBtn.textContent = isLast ? '완료' : '다음 ';
+      nextBtn.innerHTML = isLast
+        ? '완료'
+        : '다음 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
+    } else {
+      nextBtn.innerHTML = isLast
+        ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> 답안 제출'
+        : '다음 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
+    }
+
+    // 진행 바
+    const pct = Math.round((currentIdx + 1) / quizData.quizzes.length * 100);
+    document.getElementById('progressFill').style.width = pct + '%';
+    document.getElementById('progressLabel').textContent = `${currentIdx + 1} / ${quizData.quizzes.length}`;
+
+    // 저장된 답 복원 (텍스트)
+    const q = quizData.quizzes[currentIdx];
+    if (q.type !== 'multiple_choice' && answers[q.quiz_id] !== undefined) {
+      const el = document.getElementById(`ans_${q.quiz_id}`);
+      if (el) el.value = answers[q.quiz_id];
+    }
+
+    document.getElementById('warnBanner').style.display = 'none';
+  }
+
+  function handleNextOrSubmit() {
+    if (submitted) {
+      if (currentIdx < quizData.quizzes.length - 1) goQuestion(currentIdx + 1);
+      return;
+    }
+    const isLast = currentIdx === quizData.quizzes.length - 1;
+    if (isLast) {
+      const unanswered = quizData.quizzes.filter(q => !isAnswered(q)).length;
+      if (unanswered > 0) {
+        const warn = document.getElementById('warnBanner');
+        warn.style.display = 'block';
+        warn.textContent = `아직 ${unanswered}문항에 답하지 않았습니다. 제출하면 빈 답안으로 처리됩니다. 다시 제출 버튼을 누르면 제출됩니다.`;
+        // 두 번 누르면 제출
+        document.getElementById('nextBtn').onclick = () => submitQuiz(false);
+        return;
+      }
+      submitQuiz(false);
+    } else {
+      goQuestion(currentIdx + 1);
+    }
+  }
+
+  function isAnswered(q) {
+    if (q.type === 'multiple_choice') return answers[q.quiz_id] !== undefined;
+    return !!(answers[q.quiz_id] || '').trim();
+  }
+
+  // ── 답 저장 ───────────────────────────────────────────────
+  function selectOption(qid, key) {
+    if (submitted) return;
+    answers[qid] = key;
+    document.querySelectorAll(`#opts_${qid} .answer-option`).forEach(el => {
+      const sel = el.dataset.key === key;
+      el.classList.toggle('selected', sel);
+      el.querySelector('.answer-key').style.background = sel ? 'var(--color-primary)' : '';
+      el.querySelector('.answer-key').style.borderColor = sel ? 'var(--color-primary)' : '';
+      el.querySelector('.answer-key').style.color = sel ? '#fff' : '';
+    });
+    updateDot(currentIdx, true);
+  }
+
+  function saveTextAnswer(qid, val) {
+    answers[qid] = val;
+    updateDot(currentIdx, val.trim().length > 0);
+  }
+
+  function updateDot(idx, answered) {
+    if (submitted) return;
+    const dot = document.getElementById(`dot_${idx}`);
+    if (!dot) return;
+    dot.classList.toggle('answered', answered && idx !== currentIdx);
+  }
+
+  // ── 제출 ──────────────────────────────────────────────────
+  async function submitQuiz(fromTimer) {
+    if (submitted) return;
+    clearInterval(timerInterval);
+    freezeAllInputs();
+
+    if (fromTimer) {
+      const warn = document.getElementById('warnBanner');
+      warn.style.display = 'block';
+      warn.textContent = '제한 시간이 종료되어 자동 제출되었습니다.';
+    }
+
+    // 텍스트 답 최종 수집
+    quizData.quizzes.forEach(q => {
+      if (q.type !== 'multiple_choice') {
+        const el = document.getElementById(`ans_${q.quiz_id}`);
+        if (el) answers[q.quiz_id] = el.value.trim();
+      }
+    });
+
+    const nextBtn = document.getElementById('nextBtn');
+    nextBtn.disabled = true;
+    nextBtn.textContent = '채점 중...';
+
+    try {
+      const res = await fetch(`${API}/api/quiz/evaluate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quizzes: quizData.quizzes, answers }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      evalResults = await res.json();
+    } catch {
+      evalResults = {};
+      quizData.quizzes.forEach(q => {
+        if (q.type === 'multiple_choice') {
+          evalResults[q.quiz_id] = { correct: answers[q.quiz_id] === q.answer, answer: q.answer };
+        } else {
+          evalResults[q.quiz_id] = { correct: false, answer: q.answer };
+        }
+      });
+    }
+
+    submitted = true;
+    localStorage.setItem('lc_eval', JSON.stringify({ quizData, evalResults, answers }));
+
+    applyResults();
+    showScorePanel();
+
+    // dot & nav 업데이트
+    goQuestion(0);
+    nextBtn.disabled = false;
+  }
+
+  function applyResults() {
+    quizData.quizzes.forEach((q, i) => {
+      const result = evalResults[q.quiz_id] || {};
+      const correct = result.correct;
+      const correctAnswer = result.answer;
+
+      // dot 업데이트
+      const dot = document.getElementById(`dot_${i}`);
+      dot.classList.remove('answered', 'current');
+      dot.classList.add(correct ? 'correct' : 'wrong');
+
+      // badge
+      const badge = document.getElementById(`badge_${q.quiz_id}`);
+      badge.classList.remove('hidden');
+      badge.className = `badge ${correct ? 'badge-success' : 'badge-error'}`;
+      badge.textContent = correct ? '정답' : '오답';
+
+      if (q.type === 'multiple_choice') {
+        const userKey = answers[q.quiz_id] || '';
+        document.querySelectorAll(`#opts_${q.quiz_id} .answer-option`).forEach(el => {
+          el.onclick = null;
+          el.classList.remove('selected');
+          if (el.dataset.key === String(correctAnswer)) el.classList.add('correct');
+          else if (el.dataset.key === userKey && !correct) el.classList.add('wrong');
+        });
+      } else {
+        const el = document.getElementById(`ans_${q.quiz_id}`);
+        if (el) {
+          el.disabled = true;
+          el.style.borderColor = correct ? 'var(--color-success)' : 'var(--color-error)';
+        }
+      }
+
+      // 해설
+      document.getElementById(`expWrap_${q.quiz_id}`).classList.remove('hidden');
+      document.getElementById(`exp_${q.quiz_id}`).innerHTML =
+        `<strong>정답: ${escHtml(String(correctAnswer))}</strong><br/><br/>${escHtml(q.explanation || '')}`;
+    });
+  }
+
+  function freezeAllInputs() {
+    document.querySelectorAll('.answer-option').forEach(el => {
+      el.onclick = null;
+      el.style.pointerEvents = 'none';
+      el.style.opacity = '0.6';
+    });
+    document.querySelectorAll('input[id^="ans_"], textarea[id^="ans_"]').forEach(el => {
+      el.disabled = true;
+    });
+  }
+
+  function showScorePanel() {
+    const total = quizData.quizzes.length;
+    const correctCount = Object.values(evalResults).filter(r => r.correct).length;
+    const pct = total ? Math.round(correctCount / total * 100) : 0;
+    document.getElementById('scorePercent').textContent = pct + '%';
+    document.getElementById('scoreTotal').textContent = total;
+    document.getElementById('scoreCorrect').textContent = correctCount;
+    document.getElementById('scoreWrong').textContent = total - correctCount;
+    const wrap = document.getElementById('scorePanelWrap');
+    wrap.style.display = 'block';
+    wrap.scrollIntoView({ behavior: 'smooth' });
+    const CIRCUMFERENCE = 201.06;
+    requestAnimationFrame(() => {
+      document.getElementById('scoreRingFill').style.strokeDashoffset =
+        CIRCUMFERENCE * (1 - pct / 100);
+    });
+  }
+
+  function toggleExp(qid) {
+    const btn = document.getElementById(`expBtn_${qid}`);
+    const block = document.getElementById(`exp_${qid}`);
+    btn.classList.toggle('open');
+    block.classList.toggle('open');
+    btn.childNodes[0].textContent = block.classList.contains('open') ? '해설 닫기 ' : '해설 보기 ';
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  init();
+</script>
+
+</body>
+</html>

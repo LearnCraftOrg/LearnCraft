@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LearnCraft — 강의 목록</title>
+  <link rel="stylesheet" href="styles/base.css" />
+  <link rel="stylesheet" href="styles/layout.css" />
+  <link rel="stylesheet" href="styles/components.css" />
+</head>
+<body>
+
+<nav class="top-nav">
+  <div class="top-nav-inner">
+    <a href="index.html" class="nav-logo-wrap">
+      <img src="../docs/img/RGB_LIKELION_KR.png" alt="Likelion" class="nav-logo" />
+      <span class="nav-logo-label">LearnCraft</span>
+    </a>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span>Dashboard</span>
+      </a>
+      <a href="lectures.html" class="nav-link active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <span>강의 목록</span>
+      </a>
+      <a href="quiz-setup.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span>퀴즈 생성</span>
+      </a>
+      <a href="personalized-guide.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        <span>개인화 가이드</span>
+      </a>
+      <a href="quality-report.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <span>품질 보고서</span>
+      </a>
+    </div>
+    <div class="nav-actions">
+      <a href="login.html" class="nav-btn-auth">로그인/회원가입</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <div class="container">
+    <div class="page-content">
+
+      <div class="page-header">
+        <div class="page-header-text">
+          <h1>강의 목록</h1>
+          <p>등록된 강의를 검색하고 퀴즈를 생성해보세요.</p>
+        </div>
+        <div class="page-header-actions">
+          <a href="quiz-setup.html" class="btn btn-primary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            새 퀴즈 생성
+          </a>
+        </div>
+      </div>
+
+      <!-- Search -->
+      <div class="flex items-center gap-4 mb-6" style="flex-wrap:wrap;">
+        <div class="input-with-icon" style="flex:1; min-width:240px;">
+          <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" class="input" placeholder="강의 날짜 또는 과목명으로 검색..." id="searchInput" oninput="filterCards()" />
+        </div>
+      </div>
+
+      <!-- Tabs: 전체 / 카테고리 / 최근 7일 -->
+      <div class="tabs">
+        <button class="tab-item active" onclick="setTab(this, 'all')">전체</button>
+        <button class="tab-item" onclick="setTab(this, '소프트웨어 개발')">소프트웨어 개발</button>
+        <button class="tab-item" onclick="setTab(this, '데이터, AI 및 사용자 경험')">데이터·AI·UX</button>
+        <button class="tab-item" onclick="setTab(this, '단기심화')">단기심화</button>
+        <button class="tab-item" onclick="setTab(this, 'recent')">최근 7일</button>
+      </div>
+
+      <!-- Loading skeleton -->
+      <div id="loadingState" class="grid-2">
+        <div class="skeleton skeleton-card"></div>
+        <div class="skeleton skeleton-card"></div>
+        <div class="skeleton skeleton-card"></div>
+        <div class="skeleton skeleton-card"></div>
+      </div>
+
+      <!-- Lecture Cards Grid -->
+      <div class="grid-2 hidden" id="lectureGrid"></div>
+
+      <!-- Empty State -->
+      <div class="card hidden" id="emptyState">
+        <div class="empty-state">
+          <div class="empty-state-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </div>
+          <h3>검색 결과가 없습니다</h3>
+          <p>다른 검색어를 사용해 보세요.</p>
+        </div>
+      </div>
+
+      <!-- Error State -->
+      <div class="card hidden" id="errorState">
+        <div class="empty-state">
+          <div class="empty-state-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </div>
+          <h3>강의 데이터를 불러올 수 없습니다</h3>
+          <p id="errorMsg">API 서버가 실행 중인지 확인해주세요.</p>
+          <button class="btn btn-secondary" onclick="loadLectures()">다시 시도</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<script>
+  const API = 'http://localhost:8000';
+  let allLectures = [];
+  let currentTab = 'all';
+
+  async function loadLectures() {
+    document.getElementById('loadingState').classList.remove('hidden');
+    document.getElementById('lectureGrid').classList.add('hidden');
+    document.getElementById('emptyState').classList.add('hidden');
+    document.getElementById('errorState').classList.add('hidden');
+
+    try {
+      const res = await fetch(`${API}/api/lectures`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      allLectures = await res.json();
+      document.getElementById('loadingState').classList.add('hidden');
+      document.getElementById('lectureGrid').classList.remove('hidden');
+      renderCards(allLectures);
+    } catch (e) {
+      document.getElementById('loadingState').classList.add('hidden');
+      document.getElementById('errorState').classList.remove('hidden');
+      document.getElementById('errorMsg').textContent = e.message;
+    }
+  }
+
+  function renderCards(lectures) {
+    const grid = document.getElementById('lectureGrid');
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    const now = new Date();
+
+    const filtered = lectures.filter(lec => {
+      const text = `${lec.date} ${lec.content} ${lec.track} ${lec.category} ${lec.learning_goal}`.toLowerCase();
+      const daysDiff = (now - new Date(lec.date)) / (1000 * 60 * 60 * 24);
+      if (currentTab === 'recent' && daysDiff > 7) return false;
+      if (currentTab !== 'all' && currentTab !== 'recent' && lec.category !== currentTab) return false;
+      if (search && !text.includes(search)) return false;
+      return true;
+    });
+
+    document.getElementById('emptyState').classList.toggle('hidden', filtered.length > 0);
+    document.getElementById('lectureGrid').classList.toggle('hidden', filtered.length === 0);
+
+    grid.innerHTML = filtered.map(lec => `
+      <div class="lecture-card">
+        <div class="lecture-card-meta">
+          <span class="lecture-date-chip">${lec.date}</span>
+          ${lec.track ? `<span class="badge badge-muted">${lec.category} | ${lec.track}</span>` : ''}
+        </div>
+        <div class="lecture-card-title">${lec.content || '강의 ' + lec.date}</div>
+        <div class="lecture-card-goal">${lec.learning_goal || '학습 목표 정보 없음'}</div>
+        <div class="lecture-card-footer">
+          <span class="text-xs text-muted"></span>
+          <a href="lecture-detail.html?date=${lec.date}" class="btn btn-secondary btn-sm">상세 보기</a>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function setTab(el, tab) {
+    document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    currentTab = tab;
+    renderCards(allLectures);
+  }
+
+  function filterCards() {
+    renderCards(allLectures);
+  }
+
+  loadLectures();
+</script>
+
+</body>
+</html>
