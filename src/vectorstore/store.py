@@ -1,6 +1,7 @@
 """ChromaDB 컬렉션 관리 및 문서 인덱싱."""
 import logging
 import time
+from typing import Optional
 
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
@@ -10,7 +11,7 @@ from src.vectorstore.embedder import get_embeddings
 
 logger = logging.getLogger(__name__)
 
-_vectorstore_instance: Chroma | None = None
+_vectorstore_instance: Optional[Chroma] = None
 
 
 def get_vectorstore() -> Chroma:
