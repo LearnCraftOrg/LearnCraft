@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>로그인 — LearnCraft</title>
+  <link rel="stylesheet" href="styles/base.css" />
+  <style>
+    body {
+      min-height: 100vh;
+      background: #f5f5f5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .auth-card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 48px 40px 40px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+    }
+
+    .auth-logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 36px;
+      text-decoration: none;
+    }
+
+    .auth-logo img {
+      height: 32px;
+      width: auto;
+    }
+
+    .auth-logo-text {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #1a1a1a;
+    }
+
+    .kakao-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      padding: 14px;
+      border-radius: 9999px;
+      background: #FEE500;
+      color: #1a1a1a;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+      transition: opacity 0.15s;
+    }
+
+    .kakao-btn:hover {
+      opacity: 0.88;
+    }
+
+    .kakao-btn svg {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 20px 0;
+      color: #999;
+      font-size: 0.8rem;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #e5e5e5;
+    }
+
+    .auth-input {
+      width: 100%;
+      padding: 13px 16px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      color: #1a1a1a;
+      background: #fff;
+      box-sizing: border-box;
+      transition: border-color 0.15s;
+      outline: none;
+      margin-bottom: 10px;
+      font-family: inherit;
+    }
+
+    .auth-input::placeholder {
+      color: #aaa;
+    }
+
+    .auth-input:focus {
+      border-color: #1a1a1a;
+    }
+
+    .login-btn {
+      width: 100%;
+      padding: 14px;
+      border-radius: 9999px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      background: #EBEBEB;
+      color: #BBBBBB;
+      margin-top: 4px;
+      transition: background 0.15s, color 0.15s;
+      font-family: inherit;
+    }
+
+    .login-btn.active {
+      background: #FF6B00;
+      cursor: pointer;
+      color: #FFFFFF;
+    }
+
+    .login-btn.active:hover {
+      opacity: 0.85;
+    }
+
+    .auth-links {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      margin-top: 20px;
+      font-size: 0.82rem;
+      color: #888;
+    }
+
+    .auth-links a {
+      color: #555;
+      text-decoration: none;
+      padding: 0 12px;
+    }
+
+    .auth-links a:hover {
+      text-decoration: underline;
+    }
+
+    .auth-links span {
+      color: #ddd;
+    }
+  </style>
+</head>
+<body>
+
+<div class="auth-card">
+  <a href="index.html" class="auth-logo">
+    <img src="../docs/img/RGB_LIKELION_KR.png" alt="LearnCraft" />
+    <span class="auth-logo-text">LearnCraft</span>
+  </a>
+
+  <a href="#" class="kakao-btn">
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 3C6.477 3 2 6.477 2 10.8c0 2.7 1.6 5.08 4.04 6.52L5.1 21l4.42-2.3c.81.17 1.64.25 2.48.25 5.523 0 10-3.477 10-7.8S17.523 3 12 3z"/>
+    </svg>
+    카카오톡으로 1초만에 시작하기
+  </a>
+
+  <div class="divider">또는</div>
+
+  <input id="email" class="auth-input" type="email" placeholder="이메일" autocomplete="email" />
+  <input id="password" class="auth-input" type="password" placeholder="비밀번호" autocomplete="current-password" />
+
+  <button id="loginBtn" class="login-btn" disabled>로그인</button>
+
+  <div class="auth-links">
+    <a href="#">계정 찾기</a>
+    <span>|</span>
+    <a href="#">비밀번호 찾기</a>
+    <span>|</span>
+    <a href="register.html">회원가입</a>
+  </div>
+</div>
+
+<script>
+  const email = document.getElementById('email');
+  const password = document.getElementById('password');
+  const btn = document.getElementById('loginBtn');
+
+  function checkForm() {
+    if (email.value.trim() && password.value.trim()) {
+      btn.classList.add('active');
+      btn.disabled = false;
+    } else {
+      btn.classList.remove('active');
+      btn.disabled = true;
+    }
+  }
+
+  email.addEventListener('input', checkForm);
+  password.addEventListener('input', checkForm);
+</script>
+
+</body>
+</html>
