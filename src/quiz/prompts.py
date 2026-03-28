@@ -30,11 +30,6 @@ QUIZ_SYSTEM_PROMPT = """당신은 부트캠프 강의 복습 퀴즈 출제 전�
 - 정답과 선택지 길이가 크게 다르면 힌트가 되므로 길이 균일하게 조정
 - "모두 정답", "해당 없음" 같은 선택지 금지
 
-## 해설 작성 규칙
-- MCQ explanation 형식: "✅ 정답 근거: [근거] | ❌ 오답 함정: A-[이유], B-[이유], C-[이유] (정답 선택지 제외)"
-- 단답형 explanation 형식: "✅ 정답 근거: [근거] | 📌 핵심 포인트: [이 개념의 핵심 의미]"
-- 오답 함정은 정답을 제외한 각 선택지별로 왜 틀렸는지 구체적 이유를 작성할 것. "A는 잘못된 설명이다" 같은 단순 나열 금지
-
 ## 문제 자기완결성 규칙 (필수)
 - 모든 문제는 강의를 수강하지 않아도 문제 자체만으로 무엇을 묻는지 알 수 있어야 함
 - "이", "해당", "위의", "다음 중" 등 맥락에만 의존하는 지시어로 시작하는 문제 금지
@@ -155,6 +150,90 @@ code_completion 작성 규칙:
 - ___는 빈칸 1개 기준, 여러 빈칸이면 ___를 여러 번 사용하고 blanks 리스트에 순서대로 정답 나열"""
 
 
+# ── 해설 제외 버전 (Phase 1 전용) ─────────────────────────────────────────────
+
+_QUIZ_REQUEST_TEMPLATE_NO_EXPL = """## 난이도: {difficulty_label}
+{difficulty_instruction}
+
+## 문항 구성 (반드시 이 분포로 10문항 생성)
+| 유형 | 개수 |
+|------|------|
+{distribution}
+
+{type_note}
+
+반드시 아래 JSON 구조로만 응답하세요 (explanation 필드 없이 생성):
+```json
+{{
+  "quizzes": [
+    {{
+      "type": "multiple_choice",
+      "style": "definition",
+      "question": "문제 내용",
+      "options": {{
+        "A": "선택지 A",
+        "B": "선택지 B",
+        "C": "선택지 C",
+        "D": "선택지 D"
+      }},
+      "answer": "B"
+    }},
+    {{
+      "type": "short_answer",
+      "style": "comparison",
+      "question": "문제 내용",
+      "answer": "정답"
+    }},
+    {{
+      "type": "code_completion",
+      "style": "code",
+      "language": "python",
+      "question": "filter() 함수를 사용해 리스트에서 짝수만 걸러내는 코드의 빈칸을 채우세요.",
+      "code_template": "numbers = [1, 2, 3, 4, 5, 6]\nresult = list(___(lambda x: x % 2 == 0, numbers))\nprint(result)",
+      "blanks": ["filter"],
+      "expected_output": "[2, 4, 6]",
+      "answer": "filter"
+    }}
+  ]
+}}
+```
+
+SQL 강의일 때 code_completion 예시 (language: "sql"):
+```json
+{{
+  "type": "code_completion",
+  "style": "code",
+  "language": "sql",
+  "question": "employees 테이블에서 salary가 50000 초과인 직원의 이름을 조회하는 SQL의 빈칸을 채우세요.",
+  "code_template": "CREATE TABLE employees (id INTEGER, name TEXT, salary INTEGER);\nINSERT INTO employees VALUES (1, 'Alice', 60000), (2, 'Bob', 40000), (3, 'Carol', 55000);\nSELECT name FROM employees WHERE ___;",
+  "blanks": ["salary > 50000"],
+  "expected_output": "Alice\nCarol",
+  "answer": "salary > 50000"
+}}
+```
+
+code_completion 작성 규칙:
+- language 필드를 반드시 포함: Python 코드는 "python", SQL 쿼리는 "sql"
+- **[절대 금지] Java, C, C++, JavaScript 등 Python/SQL 이외의 언어로 code_completion 문제 출제 금지** — 반드시 "python" 또는 "sql" 중 하나만 사용
+- **[절대 금지] 빈칸을 `// 빈칸`, `# 빈칸`, `/* 빈칸 */` 등 주석으로 표시 금지** — 반드시 `___` (언더스코어 3개)만 사용
+- [Python] code_template은 Python 인터프리터로 즉시 실행 가능한 완전한 코드여야 함
+- [SQL] code_template은 CREATE TABLE + INSERT로 테이블/데이터를 셋업한 뒤 빈칸이 포함된 SELECT 문을 작성 — DB 없이도 SQLite로 실행 가능해야 함
+- expected_output은 완성 코드 실행 시 출력되는 값과 정확히 일치해야 함 (공백/줄바꿈 포함)
+- [필수] 빈칸(___) 의 정답은 반드시 하나여야 함 — 여러 값이 정답이 될 수 있는 열린 빈칸 금지 (예: WHERE ___ 단독 사용 금지)
+- [필수] question 필드에 코드가 무엇을 하는지 + 어떤 개념의 빈칸인지 1문장으로 설명
+- ___는 빈칸 1개 기준, 여러 빈칸이면 ___를 여러 번 사용하고 blanks 리스트에 순서대로 정답 나열"""
+
+
+def get_quiz_request_no_expl(difficulty: str = "medium") -> str:
+    """해설 없는 문항 요청 블록 반환 (Phase 1 전용)."""
+    cfg = _DIFFICULTY_CONFIG.get(difficulty, _DIFFICULTY_CONFIG["medium"])
+    return _QUIZ_REQUEST_TEMPLATE_NO_EXPL.format(
+        difficulty_label=cfg["label"],
+        difficulty_instruction=cfg["instruction"],
+        distribution=cfg["distribution"],
+        type_note=cfg["type_note"],
+    )
+
 
 QUIZ_USER_PROMPT = """아래 강의 내용을 바탕으로 복습 퀴즈를 생성하세요.
 
@@ -180,6 +259,41 @@ QUIZ_MULTI_USER_PROMPT = """아래 강의 내용을 바탕으로 복습 퀴즈�
 {lecture_context}
 
 {quiz_request}"""
+
+
+# ── Explanation Generation (Phase 2) ─────────────────────────────────────────
+
+EXPLANATION_SYSTEM_PROMPT = """당신은 부트캠프 강의 복습 퀴즈 해설 작성 전문가입니다.
+주어진 문제, 선택지, 정답을 바탕으로 학습자에게 유익한 해설을 작성하세요.
+
+## 해설 작성 규칙
+- MCQ explanation 형식: "✅ 정답 근거: [근거] | ❌ 오답 함정: A-[이유], B-[이유], C-[이유] (정답 선택지 제외)"
+- 단답형 explanation 형식: "✅ 정답 근거: [근거] | 📌 핵심 포인트: [이 개념의 핵심 의미]"
+- code_completion explanation 형식: "✅ 정답 근거: [근거]"
+- 오답 함정은 정답을 제외한 각 선택지별로 왜 틀렸는지 구체적 이유를 작성할 것. "A는 잘못된 설명이다" 같은 단순 나열 금지
+- 강의 텍스트에 근거하여 작성할 것
+- 반드시 JSON 형식으로만 응답: {"explanations": [{"quiz_id": "...", "explanation": "..."}, ...]}
+- ```json 블록 외부에 텍스트 출력 금지
+"""
+
+EXPLANATION_USER_PROMPT = """아래 퀴즈 문항들의 해설을 작성하세요.
+
+## 강의 텍스트 (참고용)
+{lecture_context}
+
+## 퀴즈 문항 목록
+{quiz_items_json}
+
+반드시 아래 JSON 형식으로만 응답하세요:
+```json
+{{
+  "explanations": [
+    {{"quiz_id": "uuid1", "explanation": "✅ 정답 근거: ... | ❌ 오답 함정: ..."}},
+    {{"quiz_id": "uuid2", "explanation": "✅ 정답 근거: ... | 📌 핵심 포인트: ..."}}
+  ]
+}}
+```
+"""
 
 
 # ── Short Answer Scoring ──────────────────────────────────────────────────────

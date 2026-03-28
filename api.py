@@ -199,6 +199,28 @@ def generate_quiz(req: QuizGenerateRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/quiz/status/{quiz_set_id}")
+def quiz_explanation_status(quiz_set_id: str):
+    """해설 생성 완료 여부를 반환합니다. complete 시 explanations 맵 포함."""
+    import json as _json
+    from pathlib import Path
+    from config.settings import GENERATED_QUIZ_DIR
+
+    file_path = Path(GENERATED_QUIZ_DIR) / f"quiz_{quiz_set_id}.json"
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="퀴즈를 찾을 수 없습니다.")
+    with open(file_path, encoding="utf-8") as f:
+        record = _json.load(f)
+    status = record.get("explanations_status", "pending")
+    response: dict = {"quiz_set_id": quiz_set_id, "explanations_status": status}
+    if status == "complete":
+        response["explanations"] = {
+            q["quiz_id"]: q.get("explanation", "")
+            for q in record.get("quizzes", [])
+        }
+    return response
+
+
 @app.post("/api/quiz/evaluate")
 def evaluate_answers(req: EvaluateAnswersRequest):
     """사용자 답안을 채점합니다. 서술형은 LLM 평가, 객관식은 직접 비교."""
