@@ -10,14 +10,10 @@ QUIZ_SYSTEM_PROMPT = """당신은 부트캠프 강의 복습 퀴즈 출제 전�
    - 각 개념에 태그: (정의형), (비교형), (코드형), (예측형), (응용형)
 
    **[STEP 2] 문항 설계 (중복 방지 + 정답 배분 계획)**
-   - 8~11문항 각각에 대해: "Q{n}: [개념명] - [출제 의도] - 정답:[A/B/C/D 또는 주관식]" 형식으로 작성
+   - 10문항 각각에 대해: "Q{n}: [개념명] - [출제 의도] - 정답:[A/B/C/D 또는 주관식]" 형식으로 작성
    - 모든 문항: 사용하는 개념·클래스·메서드·SQL문이 반드시 STEP 1 목록에 있는지 확인 후 작성 (단답형 정답 포함)
    - 같은 개념 또는 같은 개념 쌍(예: A와 B의 차이)이 2번 이상 등장하면 즉시 다른 개념으로 교체 — 형식(MCQ/단답형)이 달라도 동일 개념 중복 금지
    - prediction 유형 문항: 질문 내 핵심 키워드가 서로 달라야 함 — "코드 실행 결과는?" 같은 동일 질문 패턴에 연산만 다른 문항 2개 이상 금지
-   - 마지막에 "유형 분포 확인: definition=N, comparison=N, code=N, prediction=N, application=N" 체크 후 아래 범위를 벗어나면 즉시 교체:
-     · easy 8문항: def 2~4, comp 1~2, code 1~2, pred 0~1, app 0~1 / 9문항: def 3~4, comp 1~3, code 1~2, pred 0~1, app 0~1
-     · medium 8문항: def 1~2, comp 1~2, code 2~3, pred 1~2, app 0~1 / 9문항: def 1~2, comp 1~2, code 2~3, pred 1~2, app 0~1
-     · hard 8문항: def 0~1, comp 0~1, code 2~3, pred 1~2, app 2~3 / 9문항: def 0~1, comp 0~1, code 2~4, pred 1~2, app 2~4
 
    **[STEP 3] MCQ 오답 설계 (각 문항별)**
    - 각 MCQ 문항의 오답 3개에 대해 아래 패턴 중 어떤 유형인지 명시:
@@ -88,19 +84,19 @@ _DIFFICULTY_CONFIG = {
         "label": "쉬움",
         "distribution": "| 정의형 (definition)     | 4 |\n| 비교형 (comparison)     | 2 |\n| 코드이해형 (code)       | 2 |\n| 결과예측형 (prediction) | 1 |\n| 개념적용형 (application)| 1 |",
         "instruction": "단일 개념을 직접 묻는 수준으로 출제하세요. 하나의 개념만 알면 풀 수 있는 문제여야 합니다. 여러 개념을 조합하거나 응용해야 하는 문제는 금지 — application 문항도 강의에 나온 예시 수준으로 제한하세요.",
-        "type_note": "- 객관식(multiple_choice): 전체 문항의 60~80% (8문항→5~6개, 9문항→5~7개, 10문항→6~8개), 선택지 4개 (A/B/C/D)\n- 주관식(short_answer): 나머지 문항\n- **[절대 금지] easy 난이도에서 code_completion 타입 사용 금지**",
+        "type_note": "- 객관식(multiple_choice): **정확히 7문항**, 선택지 4개 (A/B/C/D)\n- 주관식(short_answer): **정확히 3문항**\n- **[절대 금지] easy 난이도에서 code_completion 타입 사용 금지**",
     },
     "medium": {
         "label": "보통",
         "distribution": "| 정의형 (definition)     | 2 |\n| 비교형 (comparison)     | 2 |\n| 코드이해형 (code)       | 3 |\n| 결과예측형 (prediction) | 2 |\n| 개념적용형 (application)| 1 |",
         "instruction": "두 개념의 관계나 차이를 이해해야 풀 수 있는 수준으로 출제하세요. 기본적인 코드/쿼리 읽기·작성 능력을 평가하되, 하나의 개념만으로 풀 수 있는 단순 정의 문제는 최소화하세요.",
-        "type_note": "- 객관식(multiple_choice): 전체 문항의 60~80% (8문항→5~6개, 9문항→5~7개, 10문항→6~8개), 선택지 4개 (A/B/C/D)\n- 주관식(short_answer): 2문항\n- 코드완성(code_completion): **정확히 1문항** (코드이해형/결과예측형 중 하나를 code_completion으로 출제) — 2개 이상 금지",
+        "type_note": "- 객관식(multiple_choice): **정확히 7문항**, 선택지 4개 (A/B/C/D)\n- 주관식(short_answer): **정확히 2문항**\n- 코드완성(code_completion): **정확히 1문항** (코드이해형/결과예측형 중 하나를 code_completion으로 출제) — 2개 이상 금지",
     },
     "hard": {
         "label": "어려움",
         "distribution": "| 정의형 (definition)     | 1 |\n| 비교형 (comparison)     | 1 |\n| 코드이해형 (code)       | 3 |\n| 결과예측형 (prediction) | 2 |\n| 개념적용형 (application)| 3 |",
         "instruction": "반드시 2개 이상의 개념을 조합해야 풀 수 있는 통합형 문제만 출제하세요. 단일 개념 정의 문항은 절대 금지. 코드 문제는 에러 상황·엣지 케이스·최적화 판단이 필요한 수준. application 문항은 강의에서 다룬 개념들을 새로운 상황에 적용하는 수준이어야 합니다.",
-        "type_note": "- 객관식(multiple_choice): 전체 문항의 60~80% (8문항→5~6개, 9문항→5~7개, 10문항→6~8개), 선택지 4개 (A/B/C/D)\n- 주관식(short_answer): 2문항\n- 코드완성(code_completion): **정확히 1문항** (코드이해형/결과예측형 중 하나를 code_completion으로 출제) — 2개 이상 금지",
+        "type_note": "- 객관식(multiple_choice): **정확히 7문항**, 선택지 4개 (A/B/C/D)\n- 주관식(short_answer): **정확히 2문항**\n- 코드완성(code_completion): **정확히 1문항** (코드이해형/결과예측형 중 하나를 code_completion으로 출제) — 2개 이상 금지",
     },
 }
 
@@ -108,7 +104,7 @@ _DIFFICULTY_CONFIG = {
 _QUIZ_REQUEST_TEMPLATE = """## 난이도: {difficulty_label}
 {difficulty_instruction}
 
-## 문항 구성 (8~11문항, 아래 비율 기준)
+## 문항 구성 (정확히 10문항, 아래 비율 기준)
 | 유형 | 개수(10문항 기준) |
 |------|------|
 {distribution}

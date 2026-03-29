@@ -24,7 +24,7 @@ TYPE_COUNTS = {
 }
 
 # 허용 문항 수 범위
-MIN_QUESTIONS = 8
+MIN_QUESTIONS = 9
 MAX_QUESTIONS = 11
 
 
@@ -168,7 +168,7 @@ def validate_quiz_set(quiz_set: dict) -> dict:
             f"총 문항 수 오류: {total}문항 (허용 범위: {MIN_QUESTIONS}~{MAX_QUESTIONS}문항)"
         )
 
-    # ── MCQ / 단답형 / 코드완성 수 (비율 기반, ±1 허용) ─────────────────────
+    # ── MCQ / 단답형 / 코드완성 수 (TYPE_COUNTS 기준 ±1) ──────────────────────
 
     counts: dict[str, int] = {"multiple_choice": 0, "short_answer": 0, "code_completion": 0}
     for q in quizzes:
@@ -179,11 +179,17 @@ def validate_quiz_set(quiz_set: dict) -> dict:
     sa_count = counts["short_answer"]
     cc_count = counts["code_completion"]
 
-    # MCQ: 총 문항의 60~80% 사이여야 함
-    mcq_min = max(1, round(total * 0.6))
-    mcq_max = round(total * 0.8)
-    if not (mcq_min <= mcq_count <= mcq_max):
-        set_errors.append(f"MCQ 수 오류: {mcq_count}문항 (기대 범위: {mcq_min}~{mcq_max}문항)")
+    expected = TYPE_COUNTS.get(difficulty, TYPE_COUNTS["medium"])
+
+    # MCQ: 기대값 ±1
+    mcq_exp = expected["multiple_choice"]
+    if abs(mcq_count - mcq_exp) > 1:
+        set_errors.append(f"MCQ 수 오류: {mcq_count}문항 (기대: {mcq_exp}±1)")
+
+    # 단답형: 기대값 ±1
+    sa_exp = expected["short_answer"]
+    if abs(sa_count - sa_exp) > 1:
+        set_errors.append(f"단답형 수 오류: {sa_count}문항 (기대: {sa_exp}±1)")
 
     # code_completion: easy는 0개, medium/hard는 0~1개
     if difficulty == "easy":
