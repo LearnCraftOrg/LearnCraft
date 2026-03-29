@@ -599,7 +599,13 @@ def _render_by_question(
 
 def generate_report(eval_result: dict, quiz_set: dict | None = None) -> str:
     quiz_set_id = eval_result.get("quiz_set_id", "unknown")
-    evaluated_at = eval_result.get("evaluated_at", "")
+    evaluated_at_raw = eval_result.get("evaluated_at", "")
+    try:
+        from datetime import datetime
+        dt = datetime.fromisoformat(evaluated_at_raw)
+        evaluated_at = dt.astimezone().strftime("%Y년 %m월 %d일 %H:%M:%S")
+    except Exception:
+        evaluated_at = evaluated_at_raw
     overall_pass = eval_result.get("overall_pass", False)
     fail_reasons = eval_result.get("fail_reasons", [])
 

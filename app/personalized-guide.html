@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LearnCraft — 개인화 가이드</title>
+  <link rel="stylesheet" href="styles/base.css" />
+  <link rel="stylesheet" href="styles/layout.css" />
+  <link rel="stylesheet" href="styles/components.css" />
+  <style>
+    .guide-wrap { max-width: 800px; margin: 0 auto; }
+
+    .concept-textarea {
+      width: 100%; min-height: 100px;
+      padding: var(--space-3) var(--space-4);
+      border: 1px solid var(--color-border-strong);
+      border-radius: var(--radius-md);
+      font-size: var(--text-sm); line-height: 1.6;
+      outline: none; resize: vertical;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      box-sizing: border-box;
+    }
+    .concept-textarea:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(79,70,229,.12); }
+
+    /* 핵심 개념 그리드 */
+    .concept-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: var(--space-4);
+      margin-top: var(--space-4);
+    }
+    .concept-card {
+      padding: var(--space-4);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      background: var(--color-surface);
+    }
+    .concept-term {
+      font-size: var(--text-sm); font-weight: 700;
+      color: var(--color-primary);
+      margin-bottom: var(--space-2);
+    }
+    .concept-desc { font-size: var(--text-sm); color: var(--color-text-secondary); line-height: 1.6; }
+
+    /* 복습 포인트 */
+    .review-list { list-style: none; padding: 0; margin: var(--space-4) 0 0; }
+    .review-list li {
+      display: flex; align-items: flex-start; gap: var(--space-3);
+      padding: var(--space-3) 0;
+      border-bottom: 1px solid var(--color-border-light);
+      font-size: var(--text-sm); line-height: 1.6; color: var(--color-text-secondary);
+    }
+    .review-list li:last-child { border-bottom: none; }
+    .review-list li::before {
+      content: ''; width: 6px; height: 6px; border-radius: 50%;
+      background: var(--color-primary); flex-shrink: 0; margin-top: 7px;
+    }
+
+    /* 요약 */
+    .summary-block {
+      font-size: var(--text-sm); line-height: 1.8;
+      color: var(--color-text-secondary);
+      white-space: pre-wrap;
+    }
+
+    .loading-spinner {
+      width: 40px; height: 40px;
+      border: 3px solid var(--color-border); border-top-color: var(--color-primary);
+      border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<nav class="top-nav">
+  <div class="top-nav-inner">
+    <a href="index.html" class="nav-logo-wrap">
+      <img src="../docs/img/RGB_LIKELION_KR.png" alt="Likelion" class="nav-logo" />
+      <span class="nav-logo-label">LearnCraft</span>
+    </a>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span>Dashboard</span>
+      </a>
+      <a href="lectures.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <span>강의 목록</span>
+      </a>
+      <a href="quiz-setup.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span>퀴즈 생성</span>
+      </a>
+      <a href="personalized-guide.html" class="nav-link active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        <span>개인화 가이드</span>
+      </a>
+      <a href="quality-report.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <span>품질 보고서</span>
+      </a>
+    </div>
+    <div class="nav-actions">
+      <a href="login.html" class="nav-btn-auth">로그인/회원가입</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <div class="container">
+    <div class="page-content">
+      <div class="guide-wrap">
+
+        <div class="page-header">
+          <div class="page-header-text">
+            <h1>개인화 학습 가이드</h1>
+            <p>틀린 개념이나 복습하고 싶은 주제를 입력하면 맞춤 가이드를 생성합니다.</p>
+          </div>
+        </div>
+
+        <!-- 입력 폼 -->
+        <div class="card" style="padding:var(--space-6);margin-bottom:var(--space-6);" id="inputCard">
+
+          <div id="autofillBanner" class="hidden" style="background:var(--color-primary-light);border:1px solid #C7D2FE;border-radius:var(--radius-md);padding:var(--space-3) var(--space-4);margin-bottom:var(--space-4);display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);">
+            <div style="display:flex;align-items:center;gap:var(--space-2);">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <span class="text-sm" style="color:var(--color-primary);">퀴즈 결과에서 <strong id="autofillCount">0개</strong>의 틀린 개념을 가져왔습니다.</span>
+            </div>
+            <button class="btn btn-ghost" style="font-size:var(--text-xs);padding:2px 8px;height:auto;" onclick="applyAutofill()">적용</button>
+          </div>
+
+          <div class="form-group" style="margin-bottom:var(--space-4);">
+            <label class="form-label">복습할 개념 입력 <span style="color:var(--color-error);">*</span></label>
+            <div class="form-hint" style="margin-bottom:var(--space-2);">쉼표(,) 또는 줄바꿈으로 구분하여 여러 개념을 입력하세요.</div>
+            <textarea class="concept-textarea" id="conceptInput" placeholder="예: 리스트 컴프리헨션, 딕셔너리 메서드, 클래스 상속..."></textarea>
+          </div>
+
+          <div id="errorBanner" class="hidden" style="background:var(--color-error-light);border:1px solid #FECACA;border-radius:var(--radius-md);padding:var(--space-3) var(--space-4);margin-bottom:var(--space-4);font-size:var(--text-sm);color:#B91C1C;"></div>
+
+          <button class="btn btn-primary" onclick="generateGuide()" id="genBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            가이드 생성
+          </button>
+        </div>
+
+        <!-- 로딩 -->
+        <div class="card hidden" id="loadingState" style="padding:var(--space-10);text-align:center;">
+          <div class="loading-spinner" style="margin-bottom:var(--space-4);"></div>
+          <div class="text-sm text-secondary">맞춤 학습 가이드를 생성하고 있습니다...</div>
+        </div>
+
+        <!-- 결과 -->
+        <div class="hidden" id="guideResult">
+
+          <!-- 핵심 개념 -->
+          <div class="section">
+            <div class="section-header">
+              <div class="section-header-text">
+                <h2>핵심 개념</h2>
+                <p>집중적으로 복습해야 할 개념들입니다.</p>
+              </div>
+            </div>
+            <div class="concept-grid" id="conceptGrid"></div>
+          </div>
+
+          <!-- 요약 -->
+          <div class="section">
+            <div class="section-header">
+              <div class="section-header-text"><h2>학습 요약</h2></div>
+            </div>
+            <div class="card" style="padding:var(--space-5);">
+              <div class="summary-block" id="summaryBlock"></div>
+            </div>
+          </div>
+
+          <!-- 복습 포인트 -->
+          <div class="section">
+            <div class="section-header">
+              <div class="section-header-text"><h2>복습 포인트</h2></div>
+            </div>
+            <div class="card" style="padding:var(--space-4) var(--space-5);">
+              <ul class="review-list" id="reviewList"></ul>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:var(--space-3);margin-top:var(--space-4);">
+            <button class="btn btn-secondary" onclick="resetGuide()">새로 생성</button>
+            <button class="btn btn-ghost" onclick="downloadGuide()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              마크다운 다운로드
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+  const API = 'http://localhost:8000';
+  let guideData = null;
+
+  function init() {
+    // quiz-feedback에서 넘어온 틀린 개념 확인
+    const wrongConcepts = localStorage.getItem('lc_wrong_concepts');
+    if (wrongConcepts) {
+      const concepts = JSON.parse(wrongConcepts);
+      if (concepts && concepts.length > 0) {
+        document.getElementById('autofillCount').textContent = concepts.length + '개';
+        document.getElementById('autofillBanner').classList.remove('hidden');
+      }
+    }
+  }
+
+  function applyAutofill() {
+    const concepts = JSON.parse(localStorage.getItem('lc_wrong_concepts') || '[]');
+    document.getElementById('conceptInput').value = concepts.join(', ');
+    document.getElementById('autofillBanner').classList.add('hidden');
+  }
+
+  async function generateGuide() {
+    const query = document.getElementById('conceptInput').value.trim();
+    const errorBanner = document.getElementById('errorBanner');
+    errorBanner.classList.add('hidden');
+
+    if (!query) {
+      errorBanner.textContent = '복습할 개념을 입력해주세요.';
+      errorBanner.classList.remove('hidden');
+      return;
+    }
+
+    document.getElementById('inputCard').style.display = 'none';
+    document.getElementById('guideResult').classList.add('hidden');
+    document.getElementById('loadingState').classList.remove('hidden');
+
+    try {
+      const res = await fetch(`${API}/api/guide/personalized`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP ${res.status}`);
+      }
+      guideData = await res.json();
+      renderGuide(guideData);
+    } catch (e) {
+      document.getElementById('loadingState').classList.add('hidden');
+      document.getElementById('inputCard').style.display = '';
+      errorBanner.textContent = '가이드 생성 실패: ' + e.message;
+      errorBanner.classList.remove('hidden');
+    }
+  }
+
+  function renderGuide(data) {
+    document.getElementById('loadingState').classList.add('hidden');
+
+    // 핵심 개념
+    const grid = document.getElementById('conceptGrid');
+    const concepts = data.key_concepts || [];
+    grid.innerHTML = concepts.map(c => `
+      <div class="concept-card">
+        <div class="concept-term">${escHtml(c.term || '')}</div>
+        <div class="concept-desc">${escHtml(c.description || '')}</div>
+      </div>
+    `).join('') || '<p class="text-sm text-secondary">개념 데이터가 없습니다.</p>';
+
+    // 요약
+    document.getElementById('summaryBlock').textContent = data.summary || '';
+
+    // 복습 포인트
+    const points = data.review_points || [];
+    document.getElementById('reviewList').innerHTML = points.map(p =>
+      `<li>${escHtml(p)}</li>`
+    ).join('') || '<li>복습 포인트가 없습니다.</li>';
+
+    document.getElementById('guideResult').classList.remove('hidden');
+  }
+
+  function resetGuide() {
+    guideData = null;
+    document.getElementById('guideResult').classList.add('hidden');
+    document.getElementById('inputCard').style.display = '';
+  }
+
+  function downloadGuide() {
+    if (!guideData) return;
+    const concepts = (guideData.key_concepts || []).map(c => `### ${c.term}\n${c.description}`).join('\n\n');
+    const points = (guideData.review_points || []).map(p => `- ${p}`).join('\n');
+    const md = `# 개인화 학습 가이드\n\n## 핵심 개념\n\n${concepts}\n\n## 학습 요약\n\n${guideData.summary || ''}\n\n## 복습 포인트\n\n${points}\n`;
+    const blob = new Blob([md], { type: 'text/markdown' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'personalized_guide.md';
+    a.click();
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  init();
+</script>
+
+</body>
+</html>

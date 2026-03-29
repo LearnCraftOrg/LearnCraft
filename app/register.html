@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>회원가입 — LearnCraft</title>
+  <link rel="stylesheet" href="styles/base.css" />
+  <style>
+    body {
+      min-height: 100vh;
+      background: #f5f5f5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .auth-card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 48px 40px 40px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+    }
+
+    .auth-logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 36px;
+      text-decoration: none;
+    }
+
+    .auth-logo img {
+      height: 32px;
+      width: auto;
+    }
+
+    .auth-logo-text {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #1a1a1a;
+    }
+
+    .auth-input {
+      width: 100%;
+      padding: 13px 16px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      color: #1a1a1a;
+      background: #fff;
+      box-sizing: border-box;
+      transition: border-color 0.15s;
+      outline: none;
+      margin-bottom: 10px;
+      font-family: inherit;
+    }
+
+    .auth-input::placeholder {
+      color: #aaa;
+    }
+
+    .auth-input:focus {
+      border-color: #1a1a1a;
+    }
+
+    .register-btn {
+      width: 100%;
+      padding: 14px;
+      border-radius: 9999px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      background: #ccc;
+      color: #fff;
+      margin-top: 4px;
+      transition: background 0.15s;
+      font-family: inherit;
+    }
+
+    .register-btn.active {
+      background: #1a1a1a;
+    }
+
+    .register-btn.active:hover {
+      opacity: 0.85;
+    }
+
+    .auth-footer {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 0.82rem;
+      color: #888;
+    }
+
+    .auth-footer a {
+      color: #555;
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .auth-footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+<div class="auth-card">
+  <a href="index.html" class="auth-logo">
+    <img src="../docs/img/RGB_LIKELION_KR.png" alt="LearnCraft" />
+    <span class="auth-logo-text">LearnCraft</span>
+  </a>
+
+  <input id="name" class="auth-input" type="text" placeholder="이름" autocomplete="name" />
+  <input id="email" class="auth-input" type="email" placeholder="이메일" autocomplete="email" />
+  <input id="password" class="auth-input" type="password" placeholder="비밀번호" autocomplete="new-password" />
+  <input id="passwordConfirm" class="auth-input" type="password" placeholder="비밀번호 확인" autocomplete="new-password" />
+
+  <button id="registerBtn" class="register-btn" disabled>회원가입</button>
+
+  <div class="auth-footer">
+    이미 계정이 있으신가요? <a href="login.html">로그인</a>
+  </div>
+</div>
+
+<script>
+  const name = document.getElementById('name');
+  const email = document.getElementById('email');
+  const password = document.getElementById('password');
+  const passwordConfirm = document.getElementById('passwordConfirm');
+  const btn = document.getElementById('registerBtn');
+
+  function checkForm() {
+    if (name.value.trim() && email.value.trim() && password.value.trim() && passwordConfirm.value.trim()) {
+      btn.classList.add('active');
+      btn.disabled = false;
+    } else {
+      btn.classList.remove('active');
+      btn.disabled = true;
+    }
+  }
+
+  [name, email, password, passwordConfirm].forEach(el => el.addEventListener('input', checkForm));
+</script>
+
+</body>
+</html>

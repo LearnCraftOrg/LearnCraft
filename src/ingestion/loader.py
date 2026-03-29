@@ -42,7 +42,11 @@ def load_lecture_topics(date: str) -> str:
     if TOPICS_PATH.exists():
         data = json.loads(TOPICS_PATH.read_text(encoding="utf-8"))
         if date in data and data[date]:
-            return data[date]
+            entry = data[date]
+            # 새 구조(dict)인 경우 topic 필드 반환
+            if isinstance(entry, dict):
+                return entry.get("topic", "")
+            return entry
     text = load_script(date)
     if not text:
         return ""
@@ -51,6 +55,15 @@ def load_lecture_topics(date: str) -> str:
         return first_line[len("# 강의 주제:"):].strip()
     headings = re.findall(r"^## (.+)", text, re.MULTILINE)
     return headings[0] if headings else ""
+
+
+def get_lecture_metadata(date: str) -> dict:
+    """topics.json에서 날짜별 전체 메타데이터 반환. 없으면 빈 dict."""
+    if TOPICS_PATH.exists():
+        data = json.loads(TOPICS_PATH.read_text(encoding="utf-8"))
+        if date in data and isinstance(data[date], dict):
+            return data[date]
+    return {}
 
 
 

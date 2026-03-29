@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LearnCraft — 품질 보고서</title>
+  <link rel="stylesheet" href="styles/base.css" />
+  <link rel="stylesheet" href="styles/layout.css" />
+  <link rel="stylesheet" href="styles/components.css" />
+  <style>
+    .report-layout {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: var(--space-6);
+      align-items: start;
+    }
+    @media (max-width: 768px) {
+      .report-layout { grid-template-columns: 1fr; }
+      #reportFrame { height: 60vh; }
+    }
+
+    .report-sidebar { position: sticky; top: 80px; }
+    .report-list { list-style: none; padding: 0; margin: 0; }
+    .report-item {
+      padding: var(--space-3) var(--space-4);
+      border-bottom: 1px solid var(--color-border-light);
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .report-item:last-child { border-bottom: none; }
+    .report-item:hover { background: var(--color-primary-light); }
+    .report-item.active { background: var(--color-primary-light); border-left: 3px solid var(--color-primary); }
+    .report-item-name {
+      font-size: var(--text-sm); font-weight: 600;
+      color: var(--color-text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .report-item-date { font-size: var(--text-xs); color: var(--color-text-muted); margin-top: 2px; }
+
+    #reportFrame {
+      width: 100%; height: 800px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      background: #fff;
+    }
+
+    .empty-frame {
+      width: 100%; height: 400px;
+      border: 1px dashed var(--color-border);
+      border-radius: var(--radius-md);
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: var(--space-3);
+      color: var(--color-text-muted);
+    }
+  </style>
+</head>
+<body>
+
+<nav class="top-nav">
+  <div class="top-nav-inner">
+    <a href="index.html" class="nav-logo-wrap">
+      <img src="../docs/img/RGB_LIKELION_KR.png" alt="Likelion" class="nav-logo" />
+      <span class="nav-logo-label">LearnCraft</span>
+    </a>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span>Dashboard</span>
+      </a>
+      <a href="lectures.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <span>강의 목록</span>
+      </a>
+      <a href="quiz-setup.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span>퀴즈 생성</span>
+      </a>
+      <a href="personalized-guide.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        <span>개인화 가이드</span>
+      </a>
+      <a href="quality-report.html" class="nav-link active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <span>품질 보고서</span>
+      </a>
+    </div>
+    <div class="nav-actions">
+      <a href="login.html" class="nav-btn-auth">로그인/회원가입</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <div class="container">
+    <div class="page-content">
+
+      <div class="page-header">
+        <div class="page-header-text">
+          <h1>품질 보고서</h1>
+          <p>생성된 퀴즈의 품질 평가 보고서를 확인합니다.</p>
+        </div>
+      </div>
+
+      <!-- 로딩 -->
+      <div id="loadingState">
+        <div style="display:flex;gap:var(--space-4);">
+          <div style="width:280px;">
+            <div class="skeleton skeleton-line" style="height:200px;border-radius:var(--radius-md);"></div>
+          </div>
+          <div style="flex:1;">
+            <div class="skeleton skeleton-card" style="height:400px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 빈 상태 -->
+      <div class="hidden" id="emptyState">
+        <div class="card">
+          <div class="empty-state">
+            <div class="empty-state-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            </div>
+            <h3>보고서가 없습니다</h3>
+            <p>품질 평가를 실행하면 보고서가 여기에 표시됩니다.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 메인 콘텐츠 -->
+      <div class="hidden" id="mainContent">
+        <div class="report-layout">
+
+          <!-- 왼쪽: 보고서 목록 -->
+          <div class="report-sidebar">
+            <div class="card" style="padding:0;overflow:hidden;">
+              <div style="padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--color-border);background:var(--color-surface-alt);">
+                <div class="text-sm font-semibold">보고서 목록</div>
+                <div class="text-xs text-muted" id="reportCount">0개</div>
+              </div>
+              <ul class="report-list" id="reportList"></ul>
+            </div>
+          </div>
+
+          <!-- 오른쪽: 보고서 뷰어 -->
+          <div>
+            <div class="empty-frame" id="noSelectFrame">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <span class="text-sm">왼쪽에서 보고서를 선택하세요</span>
+            </div>
+            <div class="hidden" id="frameWrap">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3);">
+                <span class="text-sm font-semibold" id="selectedReportName"></span>
+                <a id="downloadLink" href="#" download class="btn btn-ghost" style="font-size:var(--text-xs);">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  다운로드
+                </a>
+              </div>
+              <iframe id="reportFrame" src="" title="품질 보고서"></iframe>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<script>
+  const API = 'http://localhost:8000';
+  let reports = [];
+
+  async function load() {
+    try {
+      const res = await fetch(`${API}/api/reports`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      reports = await res.json();
+    } catch {
+      reports = [];
+    }
+
+    document.getElementById('loadingState').classList.add('hidden');
+
+    if (!reports.length) {
+      document.getElementById('emptyState').classList.remove('hidden');
+      return;
+    }
+
+    document.getElementById('mainContent').classList.remove('hidden');
+    document.getElementById('reportCount').textContent = reports.length + '개';
+
+    const list = document.getElementById('reportList');
+    list.innerHTML = reports.map((r, i) => {
+      const dt = new Date(r.created_at * 1000);
+      const dateStr = dt.toLocaleString('ko-KR', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+      return `<li class="report-item" id="item_${i}" onclick="selectReport(${i})">
+        <div class="report-item-name">${escHtml(r.filename)}</div>
+        <div class="report-item-date">${dateStr}</div>
+      </li>`;
+    }).join('');
+
+    // 첫 번째 자동 선택
+    selectReport(0);
+  }
+
+  function selectReport(idx) {
+    // 이전 선택 해제
+    document.querySelectorAll('.report-item').forEach(el => el.classList.remove('active'));
+    document.getElementById(`item_${idx}`)?.classList.add('active');
+
+    const r = reports[idx];
+    const url = `${API}/reports/${encodeURIComponent(r.filename)}`;
+
+    document.getElementById('noSelectFrame').classList.add('hidden');
+    document.getElementById('frameWrap').classList.remove('hidden');
+    document.getElementById('selectedReportName').textContent = r.filename;
+    document.getElementById('reportFrame').src = url;
+    document.getElementById('downloadLink').href = url;
+    document.getElementById('downloadLink').download = r.filename;
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  load();
+</script>
+
+</body>
+</html>

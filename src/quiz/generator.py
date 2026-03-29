@@ -1,4 +1,4 @@
-"""GPT-4o를 사용한 퀴즈 생성 엔진."""
+"""GPT-4o-mini를 사용한 퀴즈 생성 엔진."""
 from __future__ import annotations
 
 import json
