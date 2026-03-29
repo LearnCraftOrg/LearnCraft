@@ -207,8 +207,8 @@
         ? `<span class="grade-badge grade-${r.grade}">${r.overall_score}점 ${r.grade}</span>`
         : '';
       return `<li class="report-item" id="item_${i}" onclick="selectReport(${i})">
-        <div class="report-item-name" title="${escHtml(r.filename)}">${escHtml(displayName)}${gradeBadge}</div>
-        <div class="report-item-date">${escHtml(subtitle)}</div>
+        <div class="report-item-name" title="${escHtml(r.filename)}">${escHtml(displayName)}</div>
+        <div class="report-item-date">${escHtml(subtitle)}${gradeBadge}</div>
       </li>`;
     }).join('');
 
