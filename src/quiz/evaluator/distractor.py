@@ -170,6 +170,7 @@ def evaluate_distractor(
         }
 
     errors = []
+    quiz_style = quiz.get("style", "")
     options = quiz.get("options", {})
     answer = quiz.get("answer", "")
 
@@ -203,11 +204,13 @@ def evaluate_distractor(
             warnings.append(f"오답 {key} → 강의 외부 개념 (BM25: {res['max_score']}, 커버리지: {res['coverage_ratio']*100:.0f}%)")
 
     # 최소 N개 pass 기준만 FAIL 조건
+    # 결과 예측형(prediction)은 숫자·코드 결과 오답 특성상 BM25 낮음 → warn으로 강등
     if pass_count < MIN_PASS_COUNT:
-        errors.append(
-            f"강의 내 개념 오답이 부족: {pass_count}개 pass "
-            f"(기준: 최소 {MIN_PASS_COUNT}개)"
-        )
+        msg = f"강의 내 개념 오답이 부족: {pass_count}개 pass (기준: 최소 {MIN_PASS_COUNT}개)"
+        if quiz_style == "prediction":
+            warnings.append(f"[결과 예측형 - 사람 확인 필요] {msg}")
+        else:
+            errors.append(msg)
 
     return {
         "quiz_id": quiz_id,
