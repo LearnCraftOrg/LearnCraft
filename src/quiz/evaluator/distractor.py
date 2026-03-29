@@ -207,8 +207,8 @@ def evaluate_distractor(
     # 결과 예측형(prediction)은 숫자·코드 결과 오답 특성상 BM25 낮음 → warn으로 강등
     if pass_count < MIN_PASS_COUNT:
         msg = f"강의 내 개념 오답이 부족: {pass_count}개 pass (기준: 최소 {MIN_PASS_COUNT}개)"
-        if quiz_style == "prediction":
-            warnings.append(f"[결과 예측형 - 사람 확인 필요] {msg}")
+        if quiz_style in ("prediction", "code"):
+            warnings.append(f"[{quiz_style} 스타일 - 사람 확인 필요] {msg}")
         else:
             errors.append(msg)
 

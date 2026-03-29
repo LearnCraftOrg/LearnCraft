@@ -191,13 +191,13 @@ def validate_quiz_set(quiz_set: dict) -> dict:
     if abs(sa_count - sa_exp) > 1:
         set_errors.append(f"단답형 수 오류: {sa_count}문항 (기대: {sa_exp}±1)")
 
-    # code_completion: easy는 0개, medium/hard는 0~1개
+    # code_completion: easy는 0개, medium/hard는 기대값 1개 ±1 (0~2개)
     if difficulty == "easy":
         if cc_count > 0:
             set_errors.append(f"코드완성 수 오류: easy 난이도에서 {cc_count}개 (기대: 0개)")
     else:
-        if cc_count > 1:
-            set_errors.append(f"코드완성 수 오류: {cc_count}개 (기대: 최대 1개)")
+        if cc_count > 2:
+            set_errors.append(f"코드완성 수 오류: {cc_count}개 (기대: 1개 ±1)")
 
     # ── 유형 분포 검증 (실제 문항 수에 비례 스케일, ±1 허용) ──────────────────
 
@@ -214,8 +214,8 @@ def validate_quiz_set(quiz_set: dict) -> dict:
         scaled = math.floor(base_count * total / base_total)
         actual_count = actual_dist[style]
         if abs(actual_count - scaled) > 1:
-            set_warnings.append(
-                f"유형 분포 권고 [{style}]: {actual_count}개 (권장: {scaled}개, ±1)"
+            set_errors.append(
+                f"유형 분포 오류 [{style}]: {actual_count}개 (권장: {scaled}개, ±1)"
             )
 
     # ── 정답 셔플 확인 (전체 MCQ 정답이 동일한 알파벳이면 셔플 미적용 의심) ───────

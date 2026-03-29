@@ -46,7 +46,7 @@ _EVAL_USER = """아래 강의 청크를 근거 자료로 삼아 퀴즈 문항을
 
 ### 1. Grounding (할루시네이션 감지)
 
-**코드완성(code_completion)인 경우** — 아래 두 가지를 확인한다:
+**코드 관련(type=code_completion 또는 style=code)인 경우** — 아래 두 가지를 확인한다:
 - ① 문제에서 사용한 코드 개념(함수명, 클래스, 메서드, SQL 키워드 등)이 강의 청크에서 다루는 개념인가?
 - ② 강의 청크에 없는 함수·라이브러리·문법을 문제에 임의로 끌어오지 않았는가?
 - PASS: ①②를 모두 만족 (코드의 정확한 형태가 청크에 없어도, 개념이 청크에서 다뤄지면 PASS)
@@ -177,14 +177,19 @@ def evaluate_grounding(quiz: dict, retrieval_sources: list[dict]) -> dict:
         grounding_pass = g.get("pass", False)
         grounding_reason = g.get("reason", "")
 
-        e = result.get("explanation", {})
-        explanation_pass = e.get("pass", False)
-        explanation_reason = e.get("reason", "")
+        # prediction/code 스타일: 오답이 코드 실행 결과·숫자 등이라 해설 품질 평가 제외
+        if style in ("prediction", "code"):
+            explanation_pass = None
+            explanation_reason = f"{style} 스타일 — 해설 품질 평가 제외"
+        else:
+            e = result.get("explanation", {})
+            explanation_pass = e.get("pass", False)
+            explanation_reason = e.get("reason", "")
 
         errors = []
         if not grounding_pass:
             errors.append(f"Grounding FAIL: {grounding_reason}")
-        if not explanation_pass:
+        if explanation_pass is False:
             errors.append(f"해설 FAIL: {explanation_reason}")
 
         return {
