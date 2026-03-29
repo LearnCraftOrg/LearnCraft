@@ -16,6 +16,11 @@ GENERATED_QUIZ_DIR: str = str(DATA_DIR / "logs" / "quizzes")
 QUIZ_EVAL_DIR: str = str(DATA_DIR / "logs" / "evaluations")
 QUIZ_REPORT_DIR: str = str(DATA_DIR / "logs" / "reports")
 
+DATABASE_URL: str = f"sqlite:///{BASE_DIR}/data/learncraft.db"
+SECRET_KEY: str = os.getenv("SECRET_KEY", "learncraft-secret-key-change-in-production")
+ALGORITHM: str = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7일
+
 OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
 GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 EMBEDDING_MODEL: str = "text-embedding-3-small"

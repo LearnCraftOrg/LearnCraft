@@ -121,6 +121,7 @@
   <input id="password" class="auth-input" type="password" placeholder="비밀번호" autocomplete="new-password" />
   <input id="passwordConfirm" class="auth-input" type="password" placeholder="비밀번호 확인" autocomplete="new-password" />
 
+  <div id="errorMsg" style="color:#e53e3e;font-size:0.85rem;margin-bottom:8px;min-height:20px;text-align:center;"></div>
   <button id="registerBtn" class="register-btn" disabled>회원가입</button>
 
   <div class="auth-footer">
@@ -129,14 +130,15 @@
 </div>
 
 <script>
-  const name = document.getElementById('name');
+  const nameEl = document.getElementById('name');
   const email = document.getElementById('email');
   const password = document.getElementById('password');
   const passwordConfirm = document.getElementById('passwordConfirm');
   const btn = document.getElementById('registerBtn');
+  const errorMsg = document.getElementById('errorMsg');
 
   function checkForm() {
-    if (name.value.trim() && email.value.trim() && password.value.trim() && passwordConfirm.value.trim()) {
+    if (nameEl.value.trim() && email.value.trim() && password.value.trim() && passwordConfirm.value.trim()) {
       btn.classList.add('active');
       btn.disabled = false;
     } else {
@@ -145,7 +147,29 @@
     }
   }
 
-  [name, email, password, passwordConfirm].forEach(el => el.addEventListener('input', checkForm));
+  [nameEl, email, password, passwordConfirm].forEach(el => el.addEventListener('input', checkForm));
+
+  btn.addEventListener('click', async () => {
+    errorMsg.textContent = '';
+    if (password.value !== passwordConfirm.value) {
+      errorMsg.textContent = '비밀번호가 일치하지 않습니다.';
+      return;
+    }
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: nameEl.value.trim(), email: email.value.trim(), password: password.value.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || '회원가입에 실패했습니다.');
+      window.location.href = 'login.html';
+    } catch (err) {
+      errorMsg.textContent = err.message;
+      btn.disabled = false;
+    }
+  });
 </script>
 
 </body>

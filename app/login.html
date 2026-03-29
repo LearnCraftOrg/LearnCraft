@@ -170,18 +170,19 @@
     <span class="auth-logo-text">LearnCraft</span>
   </a>
 
-  <a href="#" class="kakao-btn">
+  <button class="kakao-btn" id="kakaoBtn" onclick="alert('카카오 로그인은 준비 중입니다.')" type="button">
     <svg viewBox="0 0 24 24" fill="currentColor">
       <path d="M12 3C6.477 3 2 6.477 2 10.8c0 2.7 1.6 5.08 4.04 6.52L5.1 21l4.42-2.3c.81.17 1.64.25 2.48.25 5.523 0 10-3.477 10-7.8S17.523 3 12 3z"/>
     </svg>
     카카오톡으로 1초만에 시작하기
-  </a>
+  </button>
 
   <div class="divider">또는</div>
 
   <input id="email" class="auth-input" type="email" placeholder="이메일" autocomplete="email" />
   <input id="password" class="auth-input" type="password" placeholder="비밀번호" autocomplete="current-password" />
 
+  <div id="errorMsg" style="color:#e53e3e;font-size:0.85rem;margin-bottom:8px;min-height:20px;text-align:center;"></div>
   <button id="loginBtn" class="login-btn" disabled>로그인</button>
 
   <div class="auth-links">
@@ -197,6 +198,7 @@
   const email = document.getElementById('email');
   const password = document.getElementById('password');
   const btn = document.getElementById('loginBtn');
+  const errorMsg = document.getElementById('errorMsg');
 
   function checkForm() {
     if (email.value.trim() && password.value.trim()) {
@@ -210,6 +212,27 @@
 
   email.addEventListener('input', checkForm);
   password.addEventListener('input', checkForm);
+
+
+  btn.addEventListener('click', async () => {
+    errorMsg.textContent = '';
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.value.trim(), password: password.value.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || '로그인에 실패했습니다.');
+      localStorage.setItem('lc_token', data.access_token);
+      localStorage.setItem('lc_user', JSON.stringify(data.user));
+      window.location.href = 'index.html';
+    } catch (err) {
+      errorMsg.textContent = err.message;
+      btn.disabled = false;
+    }
+  });
 </script>
 
 </body>

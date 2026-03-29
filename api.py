@@ -15,11 +15,12 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal, Optional
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -57,6 +58,11 @@ def _run_indexing():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from src.database import Base, engine
+    import src.models.user  # noqa — 모델 등록
+    import src.models.wrong_note  # noqa — 모델 등록
+    import src.models.study_goal  # noqa — 모델 등록
+    Base.metadata.create_all(bind=engine)
     await asyncio.get_event_loop().run_in_executor(None, _run_indexing)
     yield
 
@@ -123,6 +129,196 @@ class EvaluateAnswersRequest(BaseModel):
 
 class PersonalizedGuideRequest(BaseModel):
     query: str              # 틀린 개념 / 검색 쿼리
+
+
+# ── Auth request / response models ───────────────────────────────────────────
+
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+    name: str
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+# ── Wrong Note request models ─────────────────────────────────────────────────
+
+class WrongNoteCreate(BaseModel):
+    question: str
+    question_type: str
+    user_answer: str
+    correct_answer: str
+    explanation: Optional[str] = None
+    concept_tag: Optional[str] = None
+    lecture_date: Optional[str] = None
+
+
+class WrongNotesBulkCreate(BaseModel):
+    notes: list[WrongNoteCreate]
+
+
+# ── Study Goal request models ─────────────────────────────────────────────────
+
+class StudyGoalCreate(BaseModel):
+    exam_name: str
+    exam_date: str          # YYYY-MM-DD
+    lecture_dates: list[str]  # ["YYYY-MM-DD", ...]
+
+
+# ── Auth endpoints ────────────────────────────────────────────────────────────
+
+from src.database import get_db
+from src.auth import get_current_user
+
+
+@app.post("/api/auth/register")
+def register(req: RegisterRequest, db: Session = Depends(get_db)):
+    from src.models.user import User
+    from src.auth import hash_password
+    if db.query(User).filter(User.email == req.email).first():
+        raise HTTPException(status_code=400, detail="이미 사용 중인 이메일입니다.")
+    user = User(email=req.email, password_hash=hash_password(req.password), name=req.name)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return {"id": user.id, "email": user.email, "name": user.name, "created_at": user.created_at}
+
+
+@app.post("/api/auth/login")
+def login(req: LoginRequest, db: Session = Depends(get_db)):
+    from src.models.user import User
+    from src.auth import verify_password, create_access_token
+    user = db.query(User).filter(User.email == req.email).first()
+    if not user or not verify_password(req.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="이메일 또는 비밀번호가 올바르지 않습니다.")
+    token = create_access_token({"sub": str(user.id)})
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {"id": user.id, "email": user.email, "name": user.name, "created_at": user.created_at},
+    }
+
+
+@app.get("/api/auth/me")
+def me(current_user=Depends(get_current_user)):
+    return {"id": current_user.id, "email": current_user.email, "name": current_user.name, "created_at": current_user.created_at}
+
+
+# ── Wrong Note endpoints ──────────────────────────────────────────────────────
+
+@app.post("/api/notes")
+def save_notes(req: WrongNotesBulkCreate, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    from src.models.wrong_note import WrongNote
+    saved = []
+    for item in req.notes:
+        note = WrongNote(user_id=current_user.id, **item.dict())
+        db.add(note)
+        saved.append(note)
+    db.commit()
+    for note in saved:
+        db.refresh(note)
+    return [{"id": n.id, "question": n.question, "concept_tag": n.concept_tag} for n in saved]
+
+
+@app.get("/api/notes")
+def get_notes(concept_tag: Optional[str] = None, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    from src.models.wrong_note import WrongNote
+    query = db.query(WrongNote).filter(WrongNote.user_id == current_user.id)
+    if concept_tag:
+        query = query.filter(WrongNote.concept_tag == concept_tag)
+    notes = query.order_by(WrongNote.created_at.desc()).all()
+    return [
+        {
+            "id": n.id,
+            "question": n.question,
+            "question_type": n.question_type,
+            "user_answer": n.user_answer,
+            "correct_answer": n.correct_answer,
+            "explanation": n.explanation,
+            "concept_tag": n.concept_tag,
+            "lecture_date": n.lecture_date,
+            "created_at": n.created_at,
+        }
+        for n in notes
+    ]
+
+
+@app.delete("/api/notes/{note_id}")
+def delete_note(note_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    from src.models.wrong_note import WrongNote
+    note = db.query(WrongNote).filter(WrongNote.id == note_id, WrongNote.user_id == current_user.id).first()
+    if not note:
+        raise HTTPException(status_code=404, detail="오답 노트를 찾을 수 없습니다.")
+    db.delete(note)
+    db.commit()
+    return {"success": True}
+
+
+# ── Study Goal endpoints ──────────────────────────────────────────────────────
+
+@app.post("/api/goals", status_code=201)
+def create_goal(req: StudyGoalCreate, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    import json
+    from datetime import date as date_type
+    from src.models.study_goal import StudyGoal
+    exam_date = date_type.fromisoformat(req.exam_date)
+    goal = StudyGoal(
+        user_id=current_user.id,
+        exam_name=req.exam_name,
+        exam_date=exam_date,
+        lecture_dates=json.dumps(req.lecture_dates, ensure_ascii=False),
+        is_active=True,
+    )
+    db.add(goal)
+    db.commit()
+    db.refresh(goal)
+    return _goal_dict(goal)
+
+
+@app.get("/api/goals")
+def list_goals(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    from src.models.study_goal import StudyGoal
+    goals = db.query(StudyGoal).filter(StudyGoal.user_id == current_user.id).order_by(StudyGoal.created_at.desc()).all()
+    return [_goal_dict(g) for g in goals]
+
+
+@app.delete("/api/goals/{goal_id}")
+def delete_goal(goal_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    from src.models.study_goal import StudyGoal
+    goal = db.query(StudyGoal).filter(StudyGoal.id == goal_id, StudyGoal.user_id == current_user.id).first()
+    if not goal:
+        raise HTTPException(status_code=404, detail="학습 목표를 찾을 수 없습니다.")
+    db.delete(goal)
+    db.commit()
+    return {"success": True}
+
+
+@app.get("/api/goals/{goal_id}/plan")
+def get_goal_plan(goal_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    from src.models.study_goal import StudyGoal
+    goal = db.query(StudyGoal).filter(StudyGoal.id == goal_id, StudyGoal.user_id == current_user.id).first()
+    if not goal:
+        raise HTTPException(status_code=404, detail="학습 목표를 찾을 수 없습니다.")
+    from src.services.study_plan_service import generate_study_plan
+    from src.models.wrong_note import WrongNote
+    wrong_notes = db.query(WrongNote).filter(WrongNote.user_id == current_user.id).all()
+    plan = generate_study_plan(goal, wrong_notes)
+    return plan
+
+
+def _goal_dict(goal):
+    import json
+    return {
+        "id": goal.id,
+        "exam_name": goal.exam_name,
+        "exam_date": goal.exam_date.isoformat() if goal.exam_date else None,
+        "lecture_dates": json.loads(goal.lecture_dates) if goal.lecture_dates else [],
+        "is_active": goal.is_active,
+        "created_at": goal.created_at,
+    }
 
 
 # ── Lecture endpoints ─────────────────────────────────────────────────────────
@@ -266,6 +462,34 @@ def get_personalized_guide(req: PersonalizedGuideRequest):
     except Exception as e:
         logger.exception("개인화 가이드 생성 중 오류")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Quiz history endpoint ─────────────────────────────────────────────────────
+
+@app.get("/api/quiz/history")
+def list_quiz_history(limit: int = 6):
+    """최근 생성된 퀴즈 목록을 반환합니다."""
+    import json
+    from config.settings import GENERATED_QUIZ_DIR
+    quiz_dir = Path(GENERATED_QUIZ_DIR)
+    if not quiz_dir.exists():
+        return []
+    files = sorted(quiz_dir.glob("quiz_*.json"), key=lambda p: p.stat().st_mtime, reverse=True)[:limit]
+    result = []
+    for f in files:
+        try:
+            with open(f, encoding="utf-8") as fp:
+                data = json.load(fp)
+            result.append({
+                "quiz_set_id": data.get("quiz_set_id", ""),
+                "generated_at": data.get("generated_at", ""),
+                "lecture_date": data.get("lecture_date"),
+                "difficulty": data.get("difficulty", "medium"),
+                "question_count": len(data.get("quizzes", [])),
+            })
+        except Exception:
+            continue
+    return result
 
 
 # ── Report endpoints ──────────────────────────────────────────────────────────
