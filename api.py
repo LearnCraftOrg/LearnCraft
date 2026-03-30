@@ -56,6 +56,50 @@ def _run_indexing():
         logger.info("인덱싱 완료: %s (%d chunks)", date, len(docs))
 
 
+def _migrate_wrong_notes_table(engine) -> None:
+    """wrong_notes 테이블에 신규 컬럼이 없으면 추가합니다 (SQLite ALTER TABLE)."""
+    from sqlalchemy import inspect, text
+    inspector = inspect(engine)
+    if "wrong_notes" not in inspector.get_table_names():
+        return
+    existing = {col["name"] for col in inspector.get_columns("wrong_notes")}
+    additions = [
+        ("question_hash", "VARCHAR(12)"),
+        ("options",       "TEXT"),
+        ("lecture_dates", "TEXT"),
+        ("wrong_count",   "INTEGER DEFAULT 1 NOT NULL"),
+        ("last_tried_at", "DATETIME"),
+        ("memo",          "TEXT"),
+    ]
+    with engine.begin() as conn:
+        for col, col_type in additions:
+            if col not in existing:
+                conn.execute(text(f"ALTER TABLE wrong_notes ADD COLUMN {col} {col_type}"))
+    logger.info("wrong_notes 마이그레이션 완료")
+
+
+def _ensure_guest_user(engine) -> None:
+    """비로그인 오답 노트용 게스트 사용자를 DB에 보장합니다."""
+    from src.database import SessionLocal
+    from src.models.user import User
+    db = SessionLocal()
+    try:
+        if not db.query(User).filter(User.email == "guest@learncraft.local").first():
+            import hashlib
+            # bcrypt 없이도 동작하도록 sha256 기반 더미 해시 사용
+            dummy_hash = "$2b$12$" + hashlib.sha256(b"learncraft_guest").hexdigest()[:53]
+            guest = User(
+                email="guest@learncraft.local",
+                password_hash=dummy_hash,
+                name="게스트",
+            )
+            db.add(guest)
+            db.commit()
+            logger.info("게스트 사용자 생성 완료")
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from src.database import Base, engine
@@ -63,6 +107,8 @@ async def lifespan(app: FastAPI):
     import src.models.wrong_note  # noqa — 모델 등록
     import src.models.study_goal  # noqa — 모델 등록
     Base.metadata.create_all(bind=engine)
+    _migrate_wrong_notes_table(engine)
+    _ensure_guest_user(engine)
     await asyncio.get_event_loop().run_in_executor(None, _run_indexing)
     yield
 
@@ -161,14 +207,66 @@ class WrongNotesBulkCreate(BaseModel):
     notes: list[WrongNoteCreate]
 
 
-# JSON 파일 기반 오답 노트 모델 (비로그인 용)
+# ── 오답 노트 요청 모델 (비로그인/JSON → DB 통합) ────────────────────────────
+
 class SaveWrongNoteRequest(BaseModel):
     quiz_results: list[dict]
     lecture_dates: list[str]
 
 
 class RemoveMasteredRequest(BaseModel):
-    ids: list[str]
+    ids: list[int]      # DB primary key (integer)
+
+
+# ── 오답 노트 DB 헬퍼 ─────────────────────────────────────────────────────────
+
+def _get_guest_user_id(db: Session) -> int:
+    """게스트 사용자 ID를 반환합니다 (없으면 생성)."""
+    from src.models.user import User
+    guest = db.query(User).filter(User.email == "guest@learncraft.local").first()
+    if not guest:
+        import hashlib
+        dummy_hash = "$2b$12$" + hashlib.sha256(b"learncraft_guest").hexdigest()[:53]
+        guest = User(email="guest@learncraft.local", password_hash=dummy_hash, name="게스트")
+        db.add(guest)
+        db.commit()
+        db.refresh(guest)
+    return guest.id
+
+
+def _wrong_note_dict(note) -> dict:
+    """WrongNote DB 레코드를 프론트엔드 호환 딕셔너리로 변환합니다."""
+    import json
+    options: dict = {}
+    if note.options:
+        try:
+            options = json.loads(note.options)
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    lecture_dates: list = []
+    if note.lecture_dates:
+        try:
+            lecture_dates = json.loads(note.lecture_dates)
+        except (json.JSONDecodeError, TypeError):
+            pass
+    elif note.lecture_date:
+        lecture_dates = [note.lecture_date]
+
+    last_tried = note.last_tried_at or note.created_at
+    return {
+        "id": note.id,
+        "question": note.question,
+        "type": note.question_type,
+        "options": options,
+        "answer": note.correct_answer,
+        "user_answer": note.user_answer or "",
+        "explanation": note.explanation or "",
+        "wrong_count": note.wrong_count if note.wrong_count is not None else 1,
+        "lecture_dates": lecture_dates,
+        "last_tried_at": last_tried.isoformat() if last_tried else "",
+        "memo": note.memo or "",
+    }
 
 
 # ── Study Goal request models ─────────────────────────────────────────────────
@@ -553,28 +651,84 @@ def list_reports():
     return reports
 
 
-# ── Wrong note endpoints ───────────────────────────────────────────────────────
+# ── Wrong note endpoints (DB 기반, 비로그인 지원) ─────────────────────────────
 
 @app.get("/api/wrong-note")
-def get_wrong_note():
+def get_wrong_note(db: Session = Depends(get_db)):
     """오답 노트 전체 목록을 반환합니다."""
-    from src.quiz.wrong_note import load_wrong_note
-    return load_wrong_note()
+    from src.models.wrong_note import WrongNote
+    guest_id = _get_guest_user_id(db)
+    notes = (
+        db.query(WrongNote)
+        .filter(WrongNote.user_id == guest_id)
+        .order_by(WrongNote.last_tried_at.desc(), WrongNote.created_at.desc())
+        .all()
+    )
+    return [_wrong_note_dict(n) for n in notes]
 
 
 @app.post("/api/wrong-note/save")
-def save_wrong_note(req: SaveWrongNoteRequest):
-    """퀴즈 오답을 오답 노트에 저장합니다."""
-    from src.quiz.wrong_note import save_wrong_answers
-    added = save_wrong_answers(req.quiz_results, req.lecture_dates)
+def save_wrong_note(req: SaveWrongNoteRequest, db: Session = Depends(get_db)):
+    """퀴즈 오답을 오답 노트에 저장합니다. 같은 문제는 wrong_count를 누적합니다."""
+    import hashlib, json
+    from datetime import datetime as dt
+    from src.models.wrong_note import WrongNote
+
+    guest_id = _get_guest_user_id(db)
+    now = dt.utcnow()
+    added = 0
+
+    for r in req.quiz_results:
+        if r.get("is_correct", True):
+            continue
+
+        question = r.get("question", "").strip()
+        if not question:
+            continue
+        qhash = hashlib.sha1(question.encode()).hexdigest()[:12]
+
+        existing = (
+            db.query(WrongNote)
+            .filter(WrongNote.user_id == guest_id, WrongNote.question_hash == qhash)
+            .first()
+        )
+        if existing:
+            existing.wrong_count = (existing.wrong_count or 1) + 1
+            existing.last_tried_at = now
+            existing.user_answer = r.get("user_answer", "")
+        else:
+            lecture_date = req.lecture_dates[0] if req.lecture_dates else None
+            note = WrongNote(
+                user_id=guest_id,
+                question=question,
+                question_hash=qhash,
+                question_type=r.get("type", r.get("question_type", "multiple_choice")),
+                options=json.dumps(r.get("options", {}), ensure_ascii=False),
+                user_answer=r.get("user_answer", ""),
+                correct_answer=r.get("answer", r.get("correct_answer", "")),
+                explanation=r.get("explanation", ""),
+                lecture_date=lecture_date,
+                lecture_dates=json.dumps(req.lecture_dates, ensure_ascii=False),
+                wrong_count=1,
+                last_tried_at=now,
+            )
+            db.add(note)
+            added += 1
+
+    db.commit()
     return {"added": added}
 
 
 @app.delete("/api/wrong-note")
-def remove_from_wrong_note(req: RemoveMasteredRequest):
+def remove_from_wrong_note(req: RemoveMasteredRequest, db: Session = Depends(get_db)):
     """오답 노트에서 선택한 항목을 제거합니다."""
-    from src.quiz.wrong_note import remove_mastered
-    remove_mastered(req.ids)
+    from src.models.wrong_note import WrongNote
+    guest_id = _get_guest_user_id(db)
+    db.query(WrongNote).filter(
+        WrongNote.id.in_(req.ids),
+        WrongNote.user_id == guest_id,
+    ).delete(synchronize_session=False)
+    db.commit()
     return {"removed": len(req.ids)}
 
 
@@ -583,11 +737,16 @@ class UpdateMemoRequest(BaseModel):
 
 
 @app.patch("/api/wrong-note/{entry_id}/memo")
-def update_wrong_note_memo(entry_id: str, req: UpdateMemoRequest):
+def update_wrong_note_memo(entry_id: int, req: UpdateMemoRequest, db: Session = Depends(get_db)):
     """오답 항목에 개인 메모를 저장합니다."""
-    from src.quiz.wrong_note import update_memo
-    found = update_memo(entry_id, req.memo)
-    if not found:
-        from fastapi import HTTPException
+    from src.models.wrong_note import WrongNote
+    guest_id = _get_guest_user_id(db)
+    note = db.query(WrongNote).filter(
+        WrongNote.id == entry_id,
+        WrongNote.user_id == guest_id,
+    ).first()
+    if not note:
         raise HTTPException(status_code=404, detail="항목을 찾을 수 없습니다.")
+    note.memo = req.memo.strip()
+    db.commit()
     return {"ok": True}
