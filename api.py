@@ -92,9 +92,10 @@ FRONTEND_DIR = Path(__file__).parent / "app"
 DOCS_DIR = Path(__file__).parent / "docs"
 
 # 품질 보고서 디렉토리 (없으면 생성)
-from config.settings import QUIZ_REPORT_DIR
+from config.settings import QUIZ_REPORT_DIR, GENERATED_QUIZ_DIR, QUIZ_EVAL_DIR
 QUIZ_REPORT_DIR = Path(QUIZ_REPORT_DIR)
 QUIZ_REPORT_DIR.mkdir(parents=True, exist_ok=True)
+GENERATED_QUIZ_DIR = Path(GENERATED_QUIZ_DIR)
 
 app.mount("/docs", StaticFiles(directory=str(DOCS_DIR)), name="docs")
 app.mount("/reports", StaticFiles(directory=str(QUIZ_REPORT_DIR)), name="reports")
@@ -497,10 +498,46 @@ def list_quiz_history(limit: int = 6):
 @app.get("/api/reports")
 def list_reports():
     """생성된 품질 보고서 목록을 반환합니다."""
+    import json
+    from src.ingestion.loader import load_lecture_topics
+
     reports = []
     for f in sorted(QUIZ_REPORT_DIR.glob("*.html"), key=lambda p: p.stat().st_mtime, reverse=True):
+        # report_{uuid}.html → quiz_{uuid}.json
+        uuid = f.stem.removeprefix("report_")
+        quiz_file = GENERATED_QUIZ_DIR / f"quiz_{uuid}.json"
+
+        lecture_date = ""
+        difficulty = ""
+        topic = ""
+        overall_score = None
+        grade = ""
+        if quiz_file.exists():
+            try:
+                quiz_data = json.loads(quiz_file.read_text(encoding="utf-8"))
+                lecture_date = quiz_data.get("lecture_date", "")
+                difficulty = quiz_data.get("difficulty", "")
+                if lecture_date:
+                    topic = load_lecture_topics(lecture_date)
+            except Exception:
+                pass
+
+        eval_file = Path(QUIZ_EVAL_DIR) / f"eval_{uuid}.json"
+        if eval_file.exists():
+            try:
+                eval_data = json.loads(eval_file.read_text(encoding="utf-8"))
+                overall_score = eval_data.get("overall_score")
+                grade = eval_data.get("grade", "")
+            except Exception:
+                pass
+
         reports.append({
             "filename": f.name,
             "created_at": f.stat().st_mtime,
+            "lecture_date": lecture_date,
+            "difficulty": difficulty,
+            "topic": topic,
+            "overall_score": overall_score,
+            "grade": grade,
         })
     return reports

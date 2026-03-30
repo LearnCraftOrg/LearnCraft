@@ -606,14 +606,33 @@ def generate_report(eval_result: dict, quiz_set: dict | None = None) -> str:
         evaluated_at = dt.astimezone().strftime("%Y년 %m월 %d일 %H:%M:%S")
     except Exception:
         evaluated_at = evaluated_at_raw
-    overall_pass = eval_result.get("overall_pass", False)
     fail_reasons = eval_result.get("fail_reasons", [])
+    overall_score = eval_result.get("overall_score")
+    grade = eval_result.get("grade", "")
 
     quizzes = quiz_set.get("quizzes", []) if quiz_set else []
     sources = quiz_set.get("retrieval_sources", []) if quiz_set else []
 
     fail_reason_str = ", ".join(fail_reasons) if fail_reasons else "없음"
-    overall_badge = _pass_badge(overall_pass)
+
+    # 점수 배지
+    _grade_styles = {
+        "A": "background:#dcfce7;color:#166534",
+        "B": "background:#dbeafe;color:#1d4ed8",
+        "C": "background:#fef9c3;color:#854d0e",
+        "D": "background:#fee2e2;color:#991b1b",
+    }
+    _grade_labels = {"A": "우수", "B": "양호", "C": "보통", "D": "미흡"}
+    if overall_score is not None:
+        _gs = _grade_styles.get(grade, "background:#f1f5f9;color:#475569")
+        _gl = _grade_labels.get(grade, grade)
+        score_badge = (
+            f'<span style="{_gs};padding:3px 10px;border-radius:6px;'
+            f'font-weight:700;font-size:1.1em;">{overall_score}점</span>'
+            f'&nbsp;<span style="font-size:0.85em;color:#64748b;">{grade}등급 · {_gl}</span>'
+        )
+    else:
+        score_badge = "<span>점수 없음</span>"
     quiz_id_to_num = {q["quiz_id"]: i+1 for i, q in enumerate(quizzes)}
 
     structural_result = eval_result.get("structural")
@@ -787,11 +806,11 @@ def generate_report(eval_result: dict, quiz_set: dict | None = None) -> str:
       <span class="summary-value">{evaluated_at}</span>
     </div>
     <div class="summary-item">
-      <span class="summary-label">최종 결과</span>
-      <span class="summary-value">{overall_badge}</span>
+      <span class="summary-label">품질 점수</span>
+      <span class="summary-value">{score_badge}</span>
     </div>
     <div class="summary-item">
-      <span class="summary-label">실패 원인</span>
+      <span class="summary-label">문제 원인</span>
       <span class="summary-value" style="color:#dc2626;">{fail_reason_str}</span>
     </div>
   </div>

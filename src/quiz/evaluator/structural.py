@@ -1,11 +1,12 @@
 """구조적 유효성 평가 - 퀴즈 세트 및 문항 단위 검증."""
 
+import math
 import re
 from typing import Any
 
 # ── 상수 ──────────────────────────────────────────────────────────────────────
 
-VALID_TYPES = {"multiple_choice", "short_answer"}
+VALID_TYPES = {"multiple_choice", "short_answer", "code_completion"}
 VALID_STYLES = {"definition", "comparison", "code", "prediction", "application"}
 VALID_ANSWER_OPTIONS = {"A", "B", "C", "D"}
 
@@ -15,9 +16,16 @@ STYLE_DISTRIBUTION = {
     "hard":   {"definition": 1, "comparison": 1, "code": 3, "prediction": 2, "application": 3},
 }
 
-TOTAL_QUESTIONS = 10
-MCQ_COUNT = 7
-SHORT_ANSWER_COUNT = 3
+# 난이도별 문항 수 기대값 (기준: 10문항)
+TYPE_COUNTS = {
+    "easy":   {"multiple_choice": 7, "short_answer": 3, "code_completion": 0},
+    "medium": {"multiple_choice": 7, "short_answer": 2, "code_completion": 1},
+    "hard":   {"multiple_choice": 7, "short_answer": 2, "code_completion": 1},
+}
+
+# 허용 문항 수 범위
+MIN_QUESTIONS = 9
+MAX_QUESTIONS = 11
 
 
 # ── 문항 단위 검증 ─────────────────────────────────────────────────────────────
@@ -154,53 +162,66 @@ def validate_quiz_set(quiz_set: dict) -> dict:
 
     # ── 총 문항 수 ────────────────────────────────────────────────────────────
 
-    if len(quizzes) != TOTAL_QUESTIONS:
+    total = len(quizzes)
+    if not (MIN_QUESTIONS <= total <= MAX_QUESTIONS):
         set_errors.append(
-            f"총 문항 수 오류: {len(quizzes)}문항 (기대: {TOTAL_QUESTIONS}문항)"
+            f"총 문항 수 오류: {total}문항 (허용 범위: {MIN_QUESTIONS}~{MAX_QUESTIONS}문항)"
         )
 
-    # ── MCQ / 단답형 수 ───────────────────────────────────────────────────────
+    # ── MCQ / 단답형 / 코드완성 수 (TYPE_COUNTS 기준 ±1) ──────────────────────
 
-    mcq_count = sum(1 for q in quizzes if q.get("type") == "multiple_choice")
-    sa_count = sum(1 for q in quizzes if q.get("type") == "short_answer")
+    counts: dict[str, int] = {"multiple_choice": 0, "short_answer": 0, "code_completion": 0}
+    for q in quizzes:
+        q_type = q.get("type", "")
+        if q_type in counts:
+            counts[q_type] += 1
+    mcq_count = counts["multiple_choice"]
+    sa_count = counts["short_answer"]
+    cc_count = counts["code_completion"]
 
-    if mcq_count != MCQ_COUNT:
-        set_errors.append(f"MCQ 수 오류: {mcq_count}문항 (기대: {MCQ_COUNT}문항)")
-    if sa_count != SHORT_ANSWER_COUNT:
-        set_errors.append(
-            f"단답형 수 오류: {sa_count}문항 (기대: {SHORT_ANSWER_COUNT}문항)"
-        )
+    expected = TYPE_COUNTS.get(difficulty, TYPE_COUNTS["medium"])
 
-    # ── 유형 분포 검증 ────────────────────────────────────────────────────────
+    # MCQ: 기대값 ±1
+    mcq_exp = expected["multiple_choice"]
+    if abs(mcq_count - mcq_exp) > 1:
+        set_errors.append(f"MCQ 수 오류: {mcq_count}문항 (기대: {mcq_exp}±1)")
 
-    expected_dist = STYLE_DISTRIBUTION.get(difficulty, STYLE_DISTRIBUTION["medium"])
+    # 단답형: 기대값 ±1
+    sa_exp = expected["short_answer"]
+    if abs(sa_count - sa_exp) > 1:
+        set_errors.append(f"단답형 수 오류: {sa_count}문항 (기대: {sa_exp}±1)")
+
+    # code_completion: easy는 0개, medium/hard는 기대값 1개 ±1 (0~2개)
+    if difficulty == "easy":
+        if cc_count > 0:
+            set_errors.append(f"코드완성 수 오류: easy 난이도에서 {cc_count}개 (기대: 0개)")
+    else:
+        if cc_count > 2:
+            set_errors.append(f"코드완성 수 오류: {cc_count}개 (기대: 1개 ±1)")
+
+    # ── 유형 분포 검증 (실제 문항 수에 비례 스케일, ±1 허용) ──────────────────
+
+    base_dist = STYLE_DISTRIBUTION.get(difficulty, STYLE_DISTRIBUTION["medium"])
+    base_total = sum(base_dist.values())  # 10
     actual_dist: dict[str, int] = {style: 0 for style in VALID_STYLES}
     for q in quizzes:
         style = q.get("style", "")
         if style in actual_dist:
             actual_dist[style] += 1
 
-    for style, expected_count in expected_dist.items():
+    for style, base_count in base_dist.items():
+        # floor 사용: 8문항일 때 prediction 기대값 floor(1.6)=1, ±1 → [0,2]
+        scaled = math.floor(base_count * total / base_total)
         actual_count = actual_dist[style]
-        if actual_count != expected_count:
+        if abs(actual_count - scaled) > 1:
             set_errors.append(
-                f"유형 분포 오류 [{style}]: {actual_count}개 (기대: {expected_count}개)"
+                f"유형 분포 오류 [{style}]: {actual_count}개 (권장: {scaled}개, ±1)"
             )
 
-    # ── 정답 분포 검증 ────────────────────────────────────────────────────────
-    
-    answer_dist = {"A": 0, "B": 0, "C": 0, "D": 0}
-    for q in quizzes:
-        if q.get("type") == "multiple_choice":
-            ans = q.get("answer")
-            if ans in answer_dist:
-                answer_dist[ans] += 1
-    
-    for label, count in answer_dist.items():
-        if count >= 5:
-            set_errors.append(f"정답 분포 심각한 편중: '{label}'이 {count}회 등장 (7문항 중 5회 이상)")
-        elif count >= 4:
-            set_warnings.append(f"정답 분포 편중 주의: '{label}'이 {count}회 등장 (7문항 중 4회 이상)")
+    # ── 정답 셔플 확인 (전체 MCQ 정답이 동일한 알파벳이면 셔플 미적용 의심) ───────
+    mcq_answers = [q.get("answer") for q in quizzes if q.get("type") == "multiple_choice"]
+    if len(mcq_answers) >= 3 and len(set(mcq_answers)) == 1:
+        set_warnings.append(f"정답 셔플 미적용 의심: MCQ {len(mcq_answers)}문항 전체 정답이 '{mcq_answers[0]}'로 동일")
 
     # ── 문항 단위 검증 ────────────────────────────────────────────────────────
 

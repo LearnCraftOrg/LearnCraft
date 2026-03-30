@@ -18,3 +18,4 @@ refined/
 app/tests/
 .claude/
 CLAUDE.md
+.claudeignore

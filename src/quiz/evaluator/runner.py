@@ -90,17 +90,70 @@ def run_evaluation(quiz_set: dict) -> dict:
         duplicate_result = {"pass": False, "error": str(e)}
         fail_reasons.append("duplicate")
 
-    logger.info("[TIMING] 평가 전체 (quiz_set_id=%s): %.2fs | %s", quiz_set_id, time.perf_counter()-t_eval_total, "PASS" if len(fail_reasons)==0 else "FAIL: "+", ".join(fail_reasons))
-    return {
+    eval_result = {
         "quiz_set_id": quiz_set_id,
         "evaluated_at": datetime.now(timezone.utc).isoformat(),
-        "overall_pass": len(fail_reasons) == 0,
         "fail_reasons": fail_reasons,
         "structural": structural_result,
         "grounding": grounding_result,
         "distractor": distractor_result,
         "duplicate": duplicate_result,
     }
+    score_info = compute_score(eval_result)
+    eval_result["overall_score"] = score_info["score"]
+    eval_result["grade"] = score_info["grade"]
+
+    logger.info("[TIMING] 평가 전체 (quiz_set_id=%s): %.2fs | 점수=%d(%s) 실패=%s",
+                quiz_set_id, time.perf_counter()-t_eval_total,
+                score_info["score"], score_info["grade"],
+                ", ".join(fail_reasons) if fail_reasons else "없음")
+    return eval_result
+
+
+# ── 점수 산출 ─────────────────────────────────────────────────────────────────
+
+def compute_score(eval_result: dict) -> dict:
+    """
+    100점 차감제 점수 산출.
+
+    차감 기준:
+      - Structural 세트 오류: -4 per error
+      - Structural 문항 오류: -2 per item error
+      - Grounding fail (hallucination): -10 per item  ← 가중치 최우선
+      - Explanation fail: -4 per item
+      - Distractor fail (비예측형 MCQ): -3 per item
+      - Duplicate warn (0.75~0.85): -2 per pair
+      - Duplicate fail (≥0.85): -5 per pair
+
+    Returns:
+        {"score": int, "grade": str}  grade = A/B/C/D
+    """
+    deductions = 0
+
+    s = eval_result.get("structural", {})
+    deductions += len(s.get("set_errors", [])) * 4
+    for item in s.get("item_results", []):
+        deductions += len(item.get("errors", [])) * 2
+
+    g = eval_result.get("grounding", {})
+    for item in g.get("item_results", []):
+        if item.get("grounding_pass") is False:
+            deductions += 10
+        if item.get("explanation_pass") is False:
+            deductions += 4
+
+    d = eval_result.get("distractor", {})
+    for item in d.get("item_results", []):
+        if not item.get("skipped") and not item.get("pass"):
+            deductions += 3
+
+    dup = eval_result.get("duplicate", {})
+    deductions += len(dup.get("warnings", [])) * 2
+    deductions += len(dup.get("errors", [])) * 5
+
+    score = max(0, 100 - deductions)
+    grade = "A" if score >= 90 else "B" if score >= 75 else "C" if score >= 60 else "D"
+    return {"score": score, "grade": grade}
 
 
 # ── eval JSON 저장 ────────────────────────────────────────────────────────────
@@ -130,7 +183,7 @@ def run_evaluation_from_file(quiz_json_path: str) -> dict:
     saved_path = save_eval_result(eval_result)
     save_report(eval_result, quiz_set)
 
-    logger.info("평가 완료: %s", "✅ PASS" if eval_result["overall_pass"] else "❌ FAIL")
+    logger.info("평가 완료: %d점 (%s등급)", eval_result["overall_score"], eval_result["grade"])
     logger.info("저장 위치: %s", saved_path)
     if eval_result["fail_reasons"]:
         logger.warning("실패 원인: %s", ", ".join(eval_result["fail_reasons"]))
@@ -159,8 +212,8 @@ def run_evaluation_all() -> list[dict]:
 
     # 요약 출력
     total = len(results)
-    passed = sum(1 for r in results if r["overall_pass"])
-    logger.info("전체 %d개 세트 평가 완료 | PASS: %d / FAIL: %d", total, passed, total - passed)
+    a_count = sum(1 for r in results if r.get("grade") == "A")
+    logger.info("전체 %d개 세트 평가 완료 | A등급: %d / 나머지: %d", total, a_count, total - a_count)
 
     return results
 
