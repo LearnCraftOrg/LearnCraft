@@ -84,6 +84,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
         <span>개인화 가이드</span>
       </a>
+      <a href="study-plan.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span>학습 플랜</span>
+      </a>
       <a href="quality-report.html" class="nav-link">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
         <span>품질 보고서</span>
@@ -109,33 +113,29 @@
         <span class="breadcrumb-current">답안 피드백</span>
       </nav>
 
-      <!-- Result Header -->
-      <div class="result-header">
+      <!-- Result Header (동적) -->
+      <div id="resultHeader" class="result-header">
         <div class="result-icon review">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         </div>
         <div style="flex:1;">
-          <div class="result-verdict review">복습이 필요합니다</div>
-          <div class="text-sm text-secondary" style="margin-bottom: var(--space-3);">10문항 중 7개 정답 (70%) · 파이썬 기초 — 리스트와 딕셔너리</div>
-          <div class="flex flex-wrap gap-2">
-            <span class="badge badge-error badge-dot">오답 3개</span>
-            <span class="badge badge-muted">딕셔너리 메서드 취약</span>
-            <span class="badge badge-muted">단답형 주의 필요</span>
-          </div>
+          <div class="result-verdict review" id="resultVerdict">결과 로딩 중...</div>
+          <div class="text-sm text-secondary" id="resultSub" style="margin-bottom:var(--space-3);"></div>
+          <div class="flex flex-wrap gap-2" id="resultBadges"></div>
         </div>
         <div style="text-align:right; flex-shrink:0;">
-          <div style="font-size: var(--text-3xl); font-weight: 800; color: var(--color-warning); letter-spacing: -0.03em; line-height:1;">70%</div>
+          <div id="resultPct" style="font-size:var(--text-3xl);font-weight:800;letter-spacing:-0.03em;line-height:1;">-</div>
           <div class="text-xs text-muted" style="margin-top:2px;">정답률</div>
         </div>
       </div>
 
-      <!-- Tabs -->
+      <!-- Tabs (동적) -->
       <div class="tabs" id="tabStrip">
-        <button class="tab-item active" onclick="setTab(this, 'all')">전체 문항 <span class="badge badge-muted" style="margin-left:4px;">10</span></button>
-        <button class="tab-item" onclick="setTab(this, 'wrong')">오답만 보기 <span class="badge badge-error" style="margin-left:4px;">3</span></button>
+        <button class="tab-item active" onclick="setTab(this,'all')">전체 문항 <span class="badge badge-muted" id="tabAllCount" style="margin-left:4px;">-</span></button>
+        <button class="tab-item" onclick="setTab(this,'wrong')">오답만 보기 <span class="badge badge-error" id="tabWrongCount" style="margin-left:4px;">-</span></button>
       </div>
 
-      <!-- Answer Cards -->
+      <!-- Answer Cards (동적) -->
       <div id="cardList">
 
         <!-- Q1 correct -->
@@ -168,7 +168,13 @@
         </div>
 
         <!-- Q2 wrong -->
-        <div class="feedback-card wrong" data-result="wrong">
+        <div class="feedback-card wrong" data-result="wrong"
+             data-question="딕셔너리에서 존재하지 않는 키에 접근 시 기본값을 반환하는 메서드는?"
+             data-question-type="multiple_choice"
+             data-user-answer="A) dict.find(key)"
+             data-correct-answer="B) dict.get(key, default)"
+             data-explanation="dict.get(key, default)는 키가 없을 때 KeyError 대신 지정한 기본값을 반환합니다."
+             data-concept-tag="딕셔너리 메서드">
           <div class="feedback-card-header">
             <div>
               <div class="question-meta" style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
@@ -228,7 +234,13 @@
         </div>
 
         <!-- Q4 wrong -->
-        <div class="feedback-card wrong" data-result="wrong">
+        <div class="feedback-card wrong" data-result="wrong"
+             data-question="딕셔너리에서 모든 키를 반환하는 메서드를 작성하세요."
+             data-question-type="short_answer"
+             data-user-answer="dict.keys"
+             data-correct-answer="dict.keys()"
+             data-explanation="반드시 괄호를 붙여야 메서드가 호출됩니다. 괄호 없이는 메서드 객체 자체를 참조합니다."
+             data-concept-tag="메서드 호출 문법">
           <div class="feedback-card-header">
             <div>
               <div class="question-meta" style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
@@ -346,7 +358,13 @@
         </div>
 
         <!-- Q8 wrong -->
-        <div class="feedback-card wrong" data-result="wrong">
+        <div class="feedback-card wrong" data-result="wrong"
+             data-question="리스트에서 특정 값의 인덱스를 반환하는 메서드는?"
+             data-question-type="short_answer"
+             data-user-answer="find()"
+             data-correct-answer="index()"
+             data-explanation="list.index(value)는 해당 값의 첫 번째 인덱스를 반환합니다. find()는 문자열 메서드입니다."
+             data-concept-tag="리스트 메서드">
           <div class="feedback-card-header">
             <div>
               <div class="question-meta" style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
@@ -441,12 +459,7 @@
           추천 복습 영역
         </div>
         <div class="text-sm text-secondary" style="margin-bottom: var(--space-3);">오답을 분석한 결과, 아래 개념에 대한 추가 학습을 권장합니다.</div>
-        <div class="concept-list" style="margin-bottom: var(--space-4);">
-          <span class="badge badge-error">딕셔너리 메서드 (get, find 혼동)</span>
-          <span class="badge badge-warning">메서드 호출 문법 (괄호 누락)</span>
-          <span class="badge badge-warning">리스트 메서드 vs 문자열 메서드</span>
-          <span class="badge badge-muted">단답형 정확한 표기</span>
-        </div>
+        <div class="concept-list" id="wrongConceptList" style="margin-bottom: var(--space-4);"></div>
         <a href="personalized-guide.html" class="btn btn-primary" onclick="saveWrongConceptsAndGo(event)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
           개인화 학습 가이드 시작
@@ -455,6 +468,10 @@
 
       <!-- Action Bar -->
       <div class="action-bar">
+        <a href="wrong-notes.html" class="btn btn-secondary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          오답노트 보기
+        </a>
         <a href="quiz-review.html" class="btn btn-secondary">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
           결과 요약으로
@@ -473,21 +490,143 @@
 
 <script>
   let currentTab = 'all';
+  let evalData = null;   // { quizData, evalResults, answers }
 
+  // ── 유틸 ──────────────────────────────────────────────────────────────────
+  function escHtml(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function extractConcept(question) {
+    // 코드 백틱 내용 우선
+    const code = question.match(/`([^`]{1,20})`/);
+    if (code) return code[1];
+    // 괄호 안 용어
+    const paren = question.match(/[（(]([가-힣a-zA-Z\s]{2,15})[）)]/);
+    if (paren) return paren[1].trim();
+    // 첫 15자 (물음표 제외)
+    return question.replace(/[?？]/g, '').slice(0, 15).trim();
+  }
+
+  function typeLabel(type) {
+    return { multiple_choice: '객관식', short_answer: '단답형', code_completion: '코드완성' }[type] || type;
+  }
+
+  // ── 렌더링 ────────────────────────────────────────────────────────────────
+  function renderFeedback() {
+    const raw = localStorage.getItem('lc_eval');
+    if (!raw) {
+      document.getElementById('cardList').innerHTML =
+        '<p class="text-sm text-secondary" style="padding:32px 0;">퀴즈 결과 데이터가 없습니다. 먼저 퀴즈를 풀어주세요.</p>';
+      return;
+    }
+    evalData = JSON.parse(raw);
+    const { quizData, evalResults, answers } = evalData;
+    const quizzes = quizData.quizzes || [];
+    const total = quizzes.length;
+    const correctCount = Object.values(evalResults).filter(r => r.correct).length;
+    const wrongCount = total - correctCount;
+    const pct = total ? Math.round(correctCount / total * 100) : 0;
+    const pass = pct >= 70;
+
+    // 결과 헤더
+    const icon = document.querySelector('#resultHeader .result-icon');
+    icon.className = `result-icon ${pass ? 'pass' : 'review'}`;
+    icon.innerHTML = pass
+      ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`
+      : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+    const verdict = document.getElementById('resultVerdict');
+    verdict.textContent = pass ? '훌륭합니다!' : '복습이 필요합니다';
+    verdict.className = `result-verdict ${pass ? 'pass' : 'review'}`;
+    document.getElementById('resultSub').textContent =
+      `${total}문항 중 ${correctCount}개 정답 (${pct}%)` + (quizData.lecture_date ? ` · ${quizData.lecture_date}` : '');
+    document.getElementById('resultBadges').innerHTML =
+      `<span class="badge badge-error badge-dot">오답 ${wrongCount}개</span>`;
+    const pctEl = document.getElementById('resultPct');
+    pctEl.textContent = pct + '%';
+    pctEl.style.color = pct >= 80 ? 'var(--color-success)' : pct >= 60 ? 'var(--color-warning)' : '#DC2626';
+
+    // 탭 카운트
+    document.getElementById('tabAllCount').textContent = total;
+    document.getElementById('tabWrongCount').textContent = wrongCount;
+
+    // 카드 렌더링
+    const cardList = document.getElementById('cardList');
+    cardList.innerHTML = quizzes.map((q, i) => {
+      const result = evalResults[q.quiz_id] || {};
+      const isCorrect = result.correct;
+      const userAns = answers[q.quiz_id] || '';
+      const correctAns = result.answer || q.answer || '';
+      const concept = extractConcept(q.question);
+      const lectureDate = quizData.lecture_date || '';
+
+      // 정답 표시 텍스트
+      let correctDisplay = correctAns;
+      if (q.type === 'multiple_choice' && q.options) {
+        correctDisplay = `${correctAns}) ${escHtml(q.options[correctAns] || '')}`;
+      }
+      let userDisplay = userAns;
+      if (q.type === 'multiple_choice' && q.options) {
+        userDisplay = userAns ? `${userAns}) ${escHtml(q.options[userAns] || '')}` : '(미응답)';
+      }
+
+      return `<div class="feedback-card ${isCorrect ? 'correct' : 'wrong'}"
+          data-result="${isCorrect ? 'correct' : 'wrong'}"
+          data-concept-tag="${escHtml(concept)}"
+          data-question="${escHtml(q.question)}"
+          data-question-type="${escHtml(q.type)}"
+          data-user-answer="${escHtml(userAns)}"
+          data-correct-answer="${escHtml(correctAns)}"
+          data-explanation="${escHtml(q.explanation || '')}"
+          data-lecture-date="${escHtml(lectureDate)}">
+        <div class="feedback-card-header">
+          <div>
+            <div class="question-meta" style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+              <span class="text-xs text-muted font-medium">Q${i + 1}</span>
+              <span class="badge badge-muted">${typeLabel(q.type)}</span>
+            </div>
+            <div class="text-sm font-medium text-primary">${escHtml(q.question)}</div>
+          </div>
+          <div class="feedback-card-status ${isCorrect ? '' : 'wrong'}">
+            ${isCorrect
+              ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>정답`
+              : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>오답`}
+          </div>
+        </div>
+        <div class="feedback-card-body">
+          <div class="flex items-center gap-3 mb-3">
+            <span style="font-size:var(--text-xs);color:#15803D;font-weight:600;">✓ 정답: ${correctDisplay}</span>
+            ${!isCorrect ? `<span style="font-size:var(--text-xs);color:#DC2626;font-weight:600;">✗ 내 답: ${userDisplay}</span>` : ''}
+          </div>
+          <button class="explanation-toggle" onclick="toggleExp(this)">
+            해설 보기
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="explanation-block">${escHtml(q.explanation || '해설이 없습니다.')}</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    // 추천 복습 개념
+    const wrongConcepts = quizzes
+      .filter(q => !(evalResults[q.quiz_id] || {}).correct)
+      .map(q => extractConcept(q.question));
+    const uniqueConcepts = [...new Set(wrongConcepts)];
+    document.getElementById('wrongConceptList').innerHTML = uniqueConcepts.length
+      ? uniqueConcepts.map(c => `<span class="badge badge-warning">${escHtml(c)}</span>`).join('')
+      : '<span class="text-sm text-secondary">오답이 없습니다.</span>';
+
+    // 오답 노트 저장
+    saveWrongNotesToServer(quizzes, evalResults, answers, quizData.lecture_date || '');
+  }
+
+  // ── 탭 / 토글 ─────────────────────────────────────────────────────────────
   function setTab(el, tab) {
     document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
     currentTab = tab;
-    filterCards();
-  }
-
-  function filterCards() {
     document.querySelectorAll('#cardList .feedback-card').forEach(card => {
-      if (currentTab === 'wrong') {
-        card.style.display = card.dataset.result === 'wrong' ? '' : 'none';
-      } else {
-        card.style.display = '';
-      }
+      card.style.display = (tab === 'wrong' && card.dataset.result !== 'wrong') ? 'none' : '';
     });
   }
 
@@ -498,18 +637,68 @@
     btn.childNodes[0].textContent = block.classList.contains('open') ? '해설 닫기 ' : '해설 보기 ';
   }
 
+  // ── 개인화 가이드 이동 ─────────────────────────────────────────────────────
   function saveWrongConceptsAndGo(e) {
-    // 오답 카드의 뱃지 텍스트를 모아 localStorage에 저장
     const wrongConcepts = [];
     document.querySelectorAll('#cardList .feedback-card[data-result="wrong"]').forEach(card => {
-      const q = card.querySelector('.feedback-question');
-      if (q) wrongConcepts.push(q.textContent.trim().slice(0, 80));
+      const tag = card.dataset.conceptTag;
+      if (tag) wrongConcepts.push(tag);
     });
     if (wrongConcepts.length > 0) {
       localStorage.setItem('lc_wrong_concepts', JSON.stringify(wrongConcepts));
     }
-    // 기본 링크 이동 허용
   }
+
+  // ── 오답노트 서버 저장 ────────────────────────────────────────────────────
+  async function saveWrongNotesToServer(quizzes, evalResults, answers, lectureDate) {
+    const notes = (quizzes || [])
+      .filter(q => !(evalResults[q.quiz_id] || {}).correct)
+      .map(q => ({
+        question: q.question,
+        question_type: q.type,
+        user_answer: answers[q.quiz_id] || '',
+        correct_answer: (evalResults[q.quiz_id] || {}).answer || q.answer || '',
+        explanation: q.explanation || '',
+        concept_tag: extractConcept(q.question),
+        lecture_date: lectureDate,
+      }));
+
+    localStorage.setItem('lc_wrong_notes', JSON.stringify(notes));
+
+    const token = localStorage.getItem('lc_token');
+    if (!token || notes.length === 0) return;
+    try {
+      await fetch('/api/notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ notes }),
+      });
+    } catch (e) {}
+  }
+
+  // ── 인증 ──────────────────────────────────────────────────────────────────
+  function checkAuth() {
+    const token = localStorage.getItem('lc_token');
+    if (!token) return;
+    fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } })
+      .then(r => {
+        if (!r.ok) { localStorage.removeItem('lc_token'); localStorage.removeItem('lc_user'); return; }
+        return r.json();
+      })
+      .then(user => {
+        if (!user) return;
+        const btn = document.querySelector('.nav-btn-auth');
+        if (btn) btn.outerHTML = `<button class="nav-btn-auth" onclick="logout()" style="cursor:pointer;background:none;border:1px solid #ddd;border-radius:6px;padding:6px 14px;font-size:0.85rem;">로그아웃</button>`;
+      });
+  }
+  function logout() {
+    localStorage.removeItem('lc_token');
+    localStorage.removeItem('lc_user');
+    location.href = 'login.html';
+  }
+
+  checkAuth();
+  renderFeedback();
 </script>
 
 </body>

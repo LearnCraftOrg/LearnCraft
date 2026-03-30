@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LearnCraft — 학습 플랜</title>
+  <link rel="stylesheet" href="styles/base.css" />
+  <link rel="stylesheet" href="styles/layout.css" />
+  <link rel="stylesheet" href="styles/components.css" />
+  <style>
+    /* ── 학습 목표 생성 폼 ── */
+    .goal-form-wrap {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-6);
+      margin-bottom: var(--space-6);
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-4);
+      margin-bottom: var(--space-4);
+    }
+
+    @media (max-width: 640px) {
+      .form-row { grid-template-columns: 1fr; }
+    }
+
+    .form-field label {
+      display: block;
+      font-size: var(--text-xs);
+      font-weight: 600;
+      color: var(--color-text-secondary);
+      margin-bottom: var(--space-1);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .form-field input[type="text"],
+    .form-field input[type="date"] {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid var(--color-border-strong);
+      border-radius: var(--radius-md);
+      font-size: var(--text-sm);
+      color: var(--color-text-primary);
+      background: var(--color-bg);
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      box-sizing: border-box;
+    }
+
+    .form-field input:focus {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px rgba(79,70,229,.12);
+    }
+
+    /* 강의 날짜 체크박스 그리드 */
+    .lecture-check-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: var(--space-2);
+      margin-top: var(--space-2);
+      max-height: 220px;
+      overflow-y: auto;
+      padding: var(--space-3);
+      background: var(--color-bg);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+    }
+
+    .lecture-check-item {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-2);
+      padding: var(--space-2) var(--space-2);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+
+    .lecture-check-item:hover { background: var(--color-surface); }
+
+    .lecture-check-item input[type="checkbox"] {
+      margin-top: 2px;
+      accent-color: var(--color-primary);
+      flex-shrink: 0;
+    }
+
+    .lecture-check-label {
+      font-size: var(--text-xs);
+      line-height: 1.4;
+    }
+
+    .lecture-check-label .lc-date { font-weight: 600; color: var(--color-text-primary); }
+    .lecture-check-label .lc-subject { color: var(--color-text-secondary); }
+
+    /* ── D-day 배너 ── */
+    .dday-banner {
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+      background: linear-gradient(135deg, var(--color-primary), #7c3aed);
+      color: #fff;
+      border-radius: var(--radius-xl);
+      padding: var(--space-5) var(--space-6);
+      margin-bottom: var(--space-6);
+    }
+
+    .dday-number {
+      font-size: 3rem;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .dday-label { font-size: var(--text-sm); opacity: 0.85; margin-top: 4px; }
+
+    .dday-info { flex: 1; }
+    .dday-exam-name { font-size: var(--text-lg); font-weight: 700; }
+    .dday-exam-date { font-size: var(--text-sm); opacity: 0.8; margin-top: 2px; }
+
+    /* ── 취약 개념 태그 ── */
+    .weak-tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      margin-top: var(--space-3);
+    }
+
+    .weak-tag {
+      padding: 4px 12px;
+      border-radius: 9999px;
+      background: #FEF3C7;
+      color: #92400E;
+      font-size: var(--text-xs);
+      font-weight: 600;
+    }
+
+    /* ── 일별 플랜 타임라인 ── */
+    .timeline { position: relative; padding-left: var(--space-8); margin-top: var(--space-4); }
+
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 14px;
+      top: 0; bottom: 0;
+      width: 2px;
+      background: var(--color-border);
+    }
+
+    .timeline-item {
+      position: relative;
+      margin-bottom: var(--space-4);
+    }
+
+    .timeline-dot {
+      position: absolute;
+      left: calc(-1 * var(--space-8) + 8px);
+      top: 6px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--color-primary);
+      border: 2px solid var(--color-bg);
+      box-shadow: 0 0 0 2px var(--color-primary);
+    }
+
+    .timeline-dot.today { background: #F59E0B; box-shadow: 0 0 0 2px #F59E0B; }
+
+    .timeline-card {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-4) var(--space-5);
+    }
+
+    .timeline-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--space-2);
+    }
+
+    .timeline-day { font-weight: 700; font-size: var(--text-sm); color: var(--color-primary); }
+    .timeline-date { font-size: var(--text-xs); color: var(--color-text-secondary); }
+
+    .timeline-lectures {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-1);
+      margin-bottom: var(--space-2);
+    }
+
+    .timeline-tip {
+      font-size: var(--text-xs);
+      color: var(--color-text-secondary);
+      background: var(--color-bg);
+      border-radius: var(--radius-sm);
+      padding: var(--space-2) var(--space-3);
+      line-height: 1.5;
+    }
+
+    .focus-concept-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-1);
+      margin-bottom: var(--space-2);
+    }
+
+    .focus-concept-tag {
+      padding: 2px 10px;
+      border-radius: 9999px;
+      background: #EDE9FE;
+      color: #5B21B6;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+
+    .timeline-card-footer {
+      margin-top: var(--space-3);
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    /* ── 목표 카드 목록 ── */
+    .goal-card {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-4) var(--space-5);
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+      margin-bottom: var(--space-3);
+      cursor: pointer;
+      transition: box-shadow 0.15s, border-color 0.15s;
+    }
+
+    .goal-card:hover { border-color: var(--color-primary); box-shadow: var(--shadow-sm); }
+    .goal-card.selected { border-color: var(--color-primary); background: #EEF2FF; }
+
+    .goal-card-name { font-weight: 600; font-size: var(--text-sm); color: var(--color-text-primary); }
+    .goal-card-meta { font-size: var(--text-xs); color: var(--color-text-secondary); margin-top: 2px; }
+
+    .goal-card-actions { margin-left: auto; display: flex; gap: var(--space-2); }
+
+    /* 로그인 안내 */
+    .login-prompt {
+      text-align: center;
+      padding: var(--space-16) var(--space-8);
+    }
+    .login-prompt svg { width: 48px; height: 48px; color: var(--color-border-strong); margin-bottom: var(--space-4); }
+
+    #planSection { display: none; }
+    #loginPrompt { display: none; }
+  </style>
+</head>
+<body>
+
+<!-- ─── Top Navigation ─── -->
+<nav class="top-nav">
+  <div class="top-nav-inner">
+    <a href="index.html" class="nav-logo-wrap">
+      <img src="../docs/img/RGB_LIKELION_KR.png" alt="Likelion" class="nav-logo" />
+      <span class="nav-logo-label">LearnCraft</span>
+    </a>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span>Dashboard</span>
+      </a>
+      <a href="lectures.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <span>강의 목록</span>
+      </a>
+      <a href="quiz-setup.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span>퀴즈 생성</span>
+      </a>
+      <a href="personalized-guide.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        <span>개인화 가이드</span>
+      </a>
+      <a href="wrong-notes.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg>
+        <span>오답노트</span>
+      </a>
+      <a href="study-plan.html" class="nav-link active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span>학습 플랜</span>
+      </a>
+      <a href="quality-report.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <span>품질 보고서</span>
+      </a>
+    </div>
+    <div class="nav-actions" id="navActions">
+      <a href="login.html" class="nav-btn-auth">로그인/회원가입</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ─── Page Content ─── -->
+<main>
+  <div class="container">
+    <div class="page-content">
+
+      <div class="page-header">
+        <div class="page-header-text">
+          <h1>학습 플랜</h1>
+          <p>시험 목표를 설정하고 AI가 만든 맞춤 학습 일정을 확인하세요.</p>
+        </div>
+      </div>
+
+      <!-- 비로그인 -->
+      <div id="loginPrompt" class="login-prompt">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <div class="empty-state-title" style="font-size:var(--text-lg);font-weight:600;margin-top:var(--space-4);">로그인이 필요해요</div>
+        <p class="text-sm text-secondary" style="margin:var(--space-2) 0 var(--space-6);">학습 플랜은 로그인한 유저만 사용할 수 있어요.</p>
+        <a href="login.html" class="btn btn-primary">로그인하기</a>
+      </div>
+
+      <!-- 로그인 상태 -->
+      <div id="planSection">
+
+        <!-- 목표 생성 폼 -->
+        <div class="section">
+          <div class="section-header">
+            <div class="section-header-text">
+              <h2>새 학습 목표 만들기</h2>
+            </div>
+          </div>
+          <div class="goal-form-wrap">
+            <div class="form-row">
+              <div class="form-field">
+                <label>시험 이름</label>
+                <input type="text" id="examName" placeholder="예: 파이썬 기말고사" />
+              </div>
+              <div class="form-field">
+                <label>시험 날짜</label>
+                <input type="date" id="examDate" />
+              </div>
+            </div>
+            <div class="form-field" style="margin-bottom:var(--space-4);">
+              <label>복습할 강의 선택</label>
+              <div class="lecture-check-grid" id="lectureCheckGrid">
+                <span class="text-xs text-secondary" style="padding:var(--space-2);">강의 목록 로딩 중...</span>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:var(--space-3);">
+              <button class="btn btn-primary" id="createGoalBtn" onclick="createGoal()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                목표 생성
+              </button>
+              <span id="formError" class="text-xs" style="color:#B91C1C;display:none;"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 내 학습 목표 목록 -->
+        <div class="section">
+          <div class="section-header">
+            <div class="section-header-text">
+              <h2>내 학습 목표</h2>
+            </div>
+          </div>
+          <div id="goalList">
+            <p class="text-sm text-secondary">학습 목표가 없습니다. 위에서 새 목표를 만들어보세요.</p>
+          </div>
+        </div>
+
+        <!-- 플랜 뷰어 -->
+        <div id="planViewer" style="display:none;">
+          <div class="section">
+            <!-- D-day 배너 -->
+            <div id="ddayBanner" class="dday-banner">
+              <div>
+                <div class="dday-number" id="ddayNum">-</div>
+                <div class="dday-label">days left</div>
+              </div>
+              <div class="dday-info">
+                <div class="dday-exam-name" id="ddayExamName">-</div>
+                <div class="dday-exam-date" id="ddayExamDate">-</div>
+              </div>
+            </div>
+
+            <!-- 취약 개념 -->
+            <div id="weakSection" style="margin-bottom:var(--space-6);display:none;">
+              <h3 style="font-size:var(--text-sm);font-weight:600;margin-bottom:var(--space-2);">취약 개념</h3>
+              <div class="weak-tag-list" id="weakTags"></div>
+              <a id="weakStudyBtn" href="personalized-guide.html" class="btn btn-secondary btn-sm" style="margin-top:var(--space-3);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                취약 개념 학습하기
+              </a>
+            </div>
+
+            <!-- 일별 플랜 타임라인 -->
+            <h3 style="font-size:var(--text-sm);font-weight:600;margin-bottom:var(--space-2);">일별 학습 일정</h3>
+            <div id="planLoading" class="text-sm text-secondary" style="padding:var(--space-8) 0;display:none;">
+              AI가 학습 플랜을 생성 중입니다...
+            </div>
+            <div class="timeline" id="planTimeline"></div>
+          </div>
+        </div>
+
+      </div><!-- /#planSection -->
+
+    </div><!-- /.page-content -->
+  </div><!-- /.container -->
+</main>
+
+<script>
+  let goals = [];
+
+  // ── 네비 인증 ─────────────────────────────────────────────────────────────
+  async function checkAuth() {
+    const token = localStorage.getItem('lc_token');
+    const navActions = document.getElementById('navActions');
+    if (!token) return;
+    try {
+      const res = await fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } });
+      if (!res.ok) { localStorage.removeItem('lc_token'); return; }
+      const user = await res.json();
+      navActions.innerHTML = `
+        <span style="font-size:0.9rem;color:#555;margin-right:8px;">${user.name}님</span>
+        <button class="nav-btn-auth" onclick="logout()" style="cursor:pointer;background:none;border:1px solid #ddd;border-radius:6px;padding:6px 14px;font-size:0.85rem;">로그아웃</button>
+      `;
+    } catch (e) {}
+  }
+
+  function logout() {
+    localStorage.removeItem('lc_token');
+    localStorage.removeItem('lc_user');
+    window.location.reload();
+  }
+
+  // ── 초기화 ────────────────────────────────────────────────────────────────
+  async function init() {
+    const token = localStorage.getItem('lc_token');
+    if (!token) {
+      document.getElementById('loginPrompt').style.display = 'block';
+      return;
+    }
+    document.getElementById('planSection').style.display = 'block';
+    await Promise.all([loadLectures(), loadGoals()]);
+  }
+
+  // ── 강의 목록 (체크박스) ──────────────────────────────────────────────────
+  async function loadLectures() {
+    const grid = document.getElementById('lectureCheckGrid');
+    try {
+      const res = await fetch('/api/lectures');
+      if (!res.ok) throw new Error();
+      const lectures = await res.json();
+      if (!lectures.length) {
+        grid.innerHTML = '<span class="text-xs text-secondary">등록된 강의가 없습니다.</span>';
+        return;
+      }
+      grid.innerHTML = lectures.map(lec => `
+        <label class="lecture-check-item">
+          <input type="checkbox" value="${lec.date}" name="lectureDate" />
+          <span class="lecture-check-label">
+            <span class="lc-date">${lec.date}</span><br>
+            <span class="lc-subject">${lec.subject || lec.content || ''}</span>
+          </span>
+        </label>
+      `).join('');
+    } catch (e) {
+      grid.innerHTML = '<span class="text-xs text-secondary">강의 목록을 불러오지 못했어요.</span>';
+    }
+  }
+
+  // ── 목표 목록 로드 ─────────────────────────────────────────────────────────
+  async function loadGoals() {
+    const token = localStorage.getItem('lc_token');
+    try {
+      const res = await fetch('/api/goals', { headers: { 'Authorization': `Bearer ${token}` } });
+      if (!res.ok) throw new Error();
+      goals = await res.json();
+      renderGoalList();
+    } catch (e) {
+      document.getElementById('goalList').innerHTML = '<p class="text-sm text-secondary">목표 목록을 불러오지 못했어요.</p>';
+    }
+  }
+
+  function renderGoalList() {
+    const el = document.getElementById('goalList');
+    if (!goals.length) {
+      el.innerHTML = '<p class="text-sm text-secondary">학습 목표가 없습니다. 위에서 새 목표를 만들어보세요.</p>';
+      return;
+    }
+    el.innerHTML = goals.map(g => {
+      const dday = Math.max(0, Math.ceil((new Date(g.exam_date) - new Date()) / 86400000));
+      return `
+        <div class="goal-card" id="gc-${g.id}" onclick="viewPlan(${g.id})">
+          <div>
+            <div class="goal-card-name">${escHtml(g.exam_name)}</div>
+            <div class="goal-card-meta">${g.exam_date} · 강의 ${g.lecture_dates.length}개 · D-${dday}</div>
+          </div>
+          <div class="goal-card-actions">
+            <a href="quiz-setup.html" class="btn btn-primary btn-sm" onclick="event.stopPropagation()">퀴즈 풀기</a>
+            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); deleteGoal(${g.id})">삭제</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // ── 목표 생성 ─────────────────────────────────────────────────────────────
+  async function createGoal() {
+    const token = localStorage.getItem('lc_token');
+    const examName = document.getElementById('examName').value.trim();
+    const examDate = document.getElementById('examDate').value;
+    const checked = [...document.querySelectorAll('input[name="lectureDate"]:checked')].map(cb => cb.value);
+    const errEl = document.getElementById('formError');
+
+    if (!examName) { showFormErr('시험 이름을 입력하세요.'); return; }
+    if (!examDate) { showFormErr('시험 날짜를 선택하세요.'); return; }
+    if (!checked.length) { showFormErr('복습할 강의를 하나 이상 선택하세요.'); return; }
+    errEl.style.display = 'none';
+
+    const btn = document.getElementById('createGoalBtn');
+    btn.disabled = true;
+    btn.textContent = '생성 중...';
+
+    try {
+      const res = await fetch('/api/goals', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ exam_name: examName, exam_date: examDate, lecture_dates: checked }),
+      });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.detail || '오류'); }
+      const newGoal = await res.json();
+      goals.unshift(newGoal);
+      renderGoalList();
+      // 폼 초기화
+      document.getElementById('examName').value = '';
+      document.getElementById('examDate').value = '';
+      document.querySelectorAll('input[name="lectureDate"]:checked').forEach(cb => cb.checked = false);
+      viewPlan(newGoal.id);
+    } catch (e) {
+      showFormErr(e.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 목표 생성';
+    }
+  }
+
+  function showFormErr(msg) {
+    const el = document.getElementById('formError');
+    el.textContent = msg;
+    el.style.display = '';
+  }
+
+  // ── 목표 삭제 ─────────────────────────────────────────────────────────────
+  async function deleteGoal(goalId) {
+    if (!confirm('이 학습 목표를 삭제할까요?')) return;
+    const token = localStorage.getItem('lc_token');
+    try {
+      const res = await fetch(`/api/goals/${goalId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error();
+      goals = goals.filter(g => g.id !== goalId);
+      renderGoalList();
+      // 플랜 뷰어 숨기기
+      document.getElementById('planViewer').style.display = 'none';
+    } catch (e) {
+      alert('삭제에 실패했어요.');
+    }
+  }
+
+  // ── 플랜 보기 ─────────────────────────────────────────────────────────────
+  async function viewPlan(goalId) {
+    // 선택 표시
+    document.querySelectorAll('.goal-card').forEach(c => c.classList.remove('selected'));
+    const card = document.getElementById(`gc-${goalId}`);
+    if (card) card.classList.add('selected');
+
+    const viewer = document.getElementById('planViewer');
+    viewer.style.display = '';
+    document.getElementById('planTimeline').innerHTML = '';
+    document.getElementById('planLoading').style.display = '';
+    viewer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    const token = localStorage.getItem('lc_token');
+    try {
+      const res = await fetch(`/api/goals/${goalId}/plan`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error();
+      const plan = await res.json();
+      renderPlan(plan);
+    } catch (e) {
+      document.getElementById('planTimeline').innerHTML = '<p class="text-sm text-secondary">플랜 생성에 실패했어요.</p>';
+    } finally {
+      document.getElementById('planLoading').style.display = 'none';
+    }
+  }
+
+  function renderPlan(plan) {
+    // D-day 배너
+    document.getElementById('ddayNum').textContent = plan.dday > 0 ? plan.dday : 'D-Day!';
+    document.getElementById('ddayExamName').textContent = plan.goal.exam_name;
+    document.getElementById('ddayExamDate').textContent = `시험일: ${plan.goal.exam_date}`;
+
+    // 취약 개념
+    const weakSection = document.getElementById('weakSection');
+    if (plan.weak_concepts && plan.weak_concepts.length) {
+      weakSection.style.display = '';
+      document.getElementById('weakTags').innerHTML = plan.weak_concepts
+        .map(t => `<span class="weak-tag">${escHtml(t)}</span>`).join('');
+      const q = plan.weak_concepts.slice(0, 3).join(' ');
+      document.getElementById('weakStudyBtn').href = `personalized-guide.html?query=${encodeURIComponent(q)}`;
+    } else {
+      weakSection.style.display = 'none';
+    }
+
+    // 타임라인
+    const today = new Date().toISOString().slice(0, 10);
+    const tl = document.getElementById('planTimeline');
+    tl.innerHTML = plan.daily_plan.map(day => {
+      const isToday = day.date === today;
+      const lecs = day.lectures.map(d => `<span class="lecture-date-chip">${d}</span>`).join('');
+      const tip = day.tip ? `<div class="timeline-tip">💡 ${escHtml(day.tip)}</div>` : '';
+      const focusTags = (day.focus_concepts || []).length
+        ? `<div class="focus-concept-list">${day.focus_concepts.map(c => `<span class="focus-concept-tag">${escHtml(c)}</span>`).join('')}</div>`
+        : '';
+      const quizBtn = day.lectures.length
+        ? `<div class="timeline-card-footer">
+             <a href="quiz-setup.html?dates=${encodeURIComponent(day.lectures.join(','))}" class="btn btn-primary btn-sm">
+               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+               추천 퀴즈 풀기
+             </a>
+           </div>`
+        : '';
+      return `
+        <div class="timeline-item">
+          <div class="timeline-dot${isToday ? ' today' : ''}"></div>
+          <div class="timeline-card">
+            <div class="timeline-card-header">
+              <span class="timeline-day">Day ${day.day}${isToday ? ' (오늘)' : ''}</span>
+              <span class="timeline-date">${day.date}</span>
+            </div>
+            ${day.lectures.length ? `<div class="timeline-lectures">${lecs}</div>` : '<p class="text-xs text-secondary">휴식일</p>'}
+            ${focusTags}
+            ${tip}
+            ${quizBtn}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  checkAuth();
+  init();
+</script>
+
+</body>
+</html>

@@ -8,6 +8,7 @@ config/google_credentials.json
 .env
 
 # Data
+data
 data/
 .chroma/
 chroma_db/
