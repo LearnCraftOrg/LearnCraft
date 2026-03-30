@@ -169,6 +169,18 @@ class StudyGoalCreate(BaseModel):
     lecture_dates: list[str]  # ["YYYY-MM-DD", ...]
 
 
+# ── Quiz Record request models ────────────────────────────────────────────────
+
+class QuizRecordCreate(BaseModel):
+    quiz_set_id: str
+    lecture_date: Optional[str] = None
+    difficulty: str
+    total_questions: int
+    correct_count: int
+    score_pct: int
+    submitted_at: Optional[str] = None
+
+
 # ── Auth endpoints ────────────────────────────────────────────────────────────
 
 from src.database import get_db
@@ -513,6 +525,56 @@ def list_quiz_history(limit: int = 6):
         except Exception:
             continue
     return result
+
+
+# ── Quiz record endpoints ─────────────────────────────────────────────────────
+
+@app.post("/api/quiz/records", status_code=201)
+def save_quiz_record(req: QuizRecordCreate, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    """로그인된 사용자의 퀴즈 결과를 DB에 저장합니다."""
+    from datetime import datetime as dt
+    from src.models.quiz_record import QuizRecord
+    submitted_at = dt.fromisoformat(req.submitted_at) if req.submitted_at else dt.utcnow()
+    record = QuizRecord(
+        user_id=current_user.id,
+        quiz_set_id=req.quiz_set_id,
+        lecture_date=req.lecture_date,
+        difficulty=req.difficulty,
+        total_questions=req.total_questions,
+        correct_count=req.correct_count,
+        score_pct=req.score_pct,
+        submitted_at=submitted_at,
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return {"id": record.id, "quiz_set_id": record.quiz_set_id, "score_pct": record.score_pct}
+
+
+@app.get("/api/quiz/records")
+def list_quiz_records(limit: int = 20, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    """로그인된 사용자의 퀴즈 기록 목록을 반환합니다."""
+    from src.models.quiz_record import QuizRecord
+    records = (
+        db.query(QuizRecord)
+        .filter(QuizRecord.user_id == current_user.id)
+        .order_by(QuizRecord.submitted_at.desc())
+        .limit(limit)
+        .all()
+    )
+    return [
+        {
+            "id": r.id,
+            "quiz_set_id": r.quiz_set_id,
+            "lecture_date": r.lecture_date,
+            "difficulty": r.difficulty,
+            "total_questions": r.total_questions,
+            "correct_count": r.correct_count,
+            "score_pct": r.score_pct,
+            "submitted_at": r.submitted_at,
+        }
+        for r in records
+    ]
 
 
 # ── Report endpoints ──────────────────────────────────────────────────────────
