@@ -100,6 +100,25 @@ def load_wrong_note() -> list[dict]:
     return sorted(entries, key=lambda e: e["last_tried_at"], reverse=True)
 
 
+def update_memo(entry_id: str, memo: str) -> bool:
+    """오답 항목에 개인 메모를 저장/수정합니다.
+
+    Args:
+        entry_id: 오답 항목 ID
+        memo: 저장할 메모 텍스트
+
+    Returns:
+        항목을 찾아 저장했으면 True, 없으면 False
+    """
+    entries = _load()
+    for e in entries:
+        if e["id"] == entry_id:
+            e["memo"] = memo.strip()
+            _save(entries)
+            return True
+    return False
+
+
 def to_quiz_format(entries: list[dict]) -> list[dict]:
     """오답 노트 항목을 퀴즈 플레이어 형식으로 변환."""
     return [

@@ -314,3 +314,18 @@ def remove_from_wrong_note(req: RemoveMasteredRequest):
     from src.quiz.wrong_note import remove_mastered
     remove_mastered(req.ids)
     return {"removed": len(req.ids)}
+
+
+class UpdateMemoRequest(BaseModel):
+    memo: str
+
+
+@app.patch("/api/wrong-note/{entry_id}/memo")
+def update_wrong_note_memo(entry_id: str, req: UpdateMemoRequest):
+    """오답 항목에 개인 메모를 저장합니다."""
+    from src.quiz.wrong_note import update_memo
+    found = update_memo(entry_id, req.memo)
+    if not found:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="항목을 찾을 수 없습니다.")
+    return {"ok": True}
