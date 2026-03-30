@@ -33,6 +33,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
         <span>개인화 가이드</span>
       </a>
+      <a href="study-plan.html" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span>학습 플랜</span>
+      </a>
       <a href="wrong-note.html" class="nav-link">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         <span>오답 노트</span>
@@ -190,6 +194,28 @@
   }
 
   loadLectures();
+
+  function checkAuth() {
+    const token = localStorage.getItem("lc_token");
+    if (!token) return;
+    fetch("/api/auth/me", { headers: { "Authorization": `Bearer ${token}` } })
+      .then(r => {
+        if (!r.ok) { localStorage.removeItem("lc_token"); localStorage.removeItem("lc_user"); return; }
+        return r.json();
+      })
+      .then(user => {
+        if (!user) return;
+        const btn = document.querySelector(".nav-btn-auth");
+        if (btn) btn.outerHTML = `<button class="nav-btn-auth" onclick="logout()" style="cursor:pointer;background:none;border:1px solid #ddd;border-radius:6px;padding:6px 14px;font-size:0.85rem;">로그아웃</button>`;
+      });
+  }
+  function logout() {
+    localStorage.removeItem("lc_token");
+    localStorage.removeItem("lc_user");
+    location.href = "login.html";
+  }
+  checkAuth();
+
 </script>
 
 </body>

@@ -35,6 +35,7 @@ _EVAL_USER = """아래 강의 청크를 근거 자료로 삼아 퀴즈 문항을
 {source_context}
 
 ## 퀴즈 문항
+- 문항 타입: {quiz_type}
 - 유형: {style}
 - 문제: {question}
 - 정답: {answer_text}
@@ -44,18 +45,32 @@ _EVAL_USER = """아래 강의 청크를 근거 자료로 삼아 퀴즈 문항을
 ## 평가 항목
 
 ### 1. Grounding (할루시네이션 감지)
-문제와 정답이 강의 청크에 근거하는가?
+
+**코드 관련(type=code_completion 또는 style=code)인 경우**:
+- 판단 기준은 단 하나: 문제에서 사용한 함수·키워드·개념이 강의 청크에서 다루는 범위 안에 있는가?
+- PASS: 강의 청크에서 다루는 개념·문법·명령어를 활용한 문항 (실행 결과나 세부 동작이 청크에 명시되지 않아도 무조건 PASS)
+- FAIL: 강의 청크에서 전혀 등장하지 않은 새로운 API·라이브러리·함수를 사용한 경우만 FAIL
+
+**그 외 타입(multiple_choice, short_answer)인 경우**:
 - PASS: 문제와 정답이 강의 청크 내용에 근거함
 - FAIL: 강의 청크에 없는 외부 개념이나 사실을 사용함
 
 ### 2. 해설 품질
-정답 근거가 강의 청크 내용과 일치하는가? 객관식의 경우 오답 함정이 각 선택지별로 구체적 이유를 설명하는가?
-- PASS: 각 오답이 "실제로 무엇인지" / "왜 이 문제에 맞지 않는지"까지 설명함
+정답 근거가 강의 청크 내용과 일치하는가?
+
+**객관식(multiple_choice)인 경우에만** 오답 함정도 평가한다:
+- PASS: ✅ 정답 근거가 강의 청크와 일치하고, 각 오답이 "실제로 무엇인지" / "왜 이 문제에 맞지 않는지"까지 설명함
 - FAIL 조건 (하나라도 해당하면 FAIL):
   · "A는 잘못됐다", "C는 관련이 없다", "D는 다른 기능이다" 처럼 틀렸다는 결론만 말하고 실제 개념 설명이 없음
   · 오답이 실제로 무엇을 의미하는지 설명하지 않음
   · 여러 선택지를 묶어서 "A, C, D는 관련이 없다"처럼 처리
   · 정답 근거가 강의 청크 내용과 다르거나 지나치게 추상적
+
+**코드완성(code_completion)인 경우**:
+- PASS: 해설 내용이 강의 청크와 충돌하지 않음 (청크에 없는 기술적 세부 설명을 추가해도 PASS)
+- FAIL: 해설이 강의 청크의 내용과 직접 모순되거나 반대되는 설명을 함
+
+**주관식(short_answer)인 경우**: 오답 선택지가 없으므로 오답 함정은 평가하지 않는다. ✅ 정답 근거가 강의 청크 내용과 일치하면 PASS.
 
 반드시 아래 JSON 구조로만 응답하세요:
 ```json
@@ -133,6 +148,7 @@ def evaluate_grounding(quiz: dict, retrieval_sources: list[dict]) -> dict:
 
     user_prompt = _EVAL_USER.format(
         source_context=source_context,
+        quiz_type=quiz_type,
         style=style,
         question=question,
         answer_text=answer_text,
@@ -160,14 +176,19 @@ def evaluate_grounding(quiz: dict, retrieval_sources: list[dict]) -> dict:
         grounding_pass = g.get("pass", False)
         grounding_reason = g.get("reason", "")
 
-        e = result.get("explanation", {})
-        explanation_pass = e.get("pass", False)
-        explanation_reason = e.get("reason", "")
+        # prediction/code 스타일: 오답이 코드 실행 결과·숫자 등이라 해설 품질 평가 제외
+        if style in ("prediction", "code"):
+            explanation_pass = None
+            explanation_reason = f"{style} 스타일 — 해설 품질 평가 제외"
+        else:
+            e = result.get("explanation", {})
+            explanation_pass = e.get("pass", False)
+            explanation_reason = e.get("reason", "")
 
         errors = []
         if not grounding_pass:
             errors.append(f"Grounding FAIL: {grounding_reason}")
-        if not explanation_pass:
+        if explanation_pass is False:
             errors.append(f"해설 FAIL: {explanation_reason}")
 
         return {
@@ -212,12 +233,13 @@ def evaluate_grounding_set(quiz_set: dict) -> dict:
     retrieval_sources = quiz_set.get("retrieval_sources", [])
 
     t_set = time.perf_counter()
-    from concurrent.futures import ThreadPoolExecutor
-    with ThreadPoolExecutor(max_workers=5) as executor:
-        futures = [executor.submit(evaluate_grounding, quiz, retrieval_sources) for quiz in quizzes]
-        item_results = [f.result() for f in futures]
+    item_results = []
+    for i, quiz in enumerate(quizzes):
+        if i > 0:
+            time.sleep(4)  # Gemini free tier: 15 RPM 제한 대응
+        item_results.append(evaluate_grounding(quiz, retrieval_sources))
     failed = [r for r in item_results if not r["pass"]]
-    logger.debug("[TIMING] grounding 세트 전체 (%d문항, 병렬): %.2fs", len(quizzes), time.perf_counter()-t_set)
+    logger.debug("[TIMING] grounding 세트 전체 (%d문항, 순차): %.2fs", len(quizzes), time.perf_counter()-t_set)
 
     return {
         "quiz_set_id": quiz_set_id,
