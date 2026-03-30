@@ -20,6 +20,7 @@ class QuizResult(TypedDict):
     """퀴즈 문항 결과 데이터 구조."""
 
     question: str       # 문제 내용
+    options: dict       # 보기 ({"A": ..., "B": ..., "C": ..., "D": ...})
     answer: str         # 정답
     user_answer: str    # 사용자 답변
     is_correct: bool    # 정오 여부
@@ -53,16 +54,19 @@ def analyze_wrong_answers(quiz_results: list[QuizResult]) -> list[str]:
 
         question = result.get("question", "")
         explanation = result.get("explanation", "")
+        options = result.get("options") or {}
+        options_text = " ".join(options.values()) if isinstance(options, dict) else ""
 
-        # 문제 텍스트와 해설에서 기술 용어 추출
-        tech_terms = _extract_tech_terms(question + " " + explanation)
+        # 문제 텍스트 + 보기 + 해설에서 기술 용어 추출
+        tech_terms = _extract_tech_terms(question + " " + options_text + " " + explanation)
 
         if tech_terms:
             # 추출된 기술 용어를 취약 개념 목록에 추가
             wrong_concepts.extend(tech_terms)
         elif question:
-            # 기술 용어를 찾지 못한 경우 문제 텍스트 앞부분 사용
-            wrong_concepts.append(question[:50])
+            # 기술 용어를 찾지 못한 경우 문제 텍스트 + 보기 앞부분 사용
+            fallback = (question + " " + options_text).strip()
+            wrong_concepts.append(fallback[:80])
 
     # 삽입 순서를 유지하면서 중복 제거
     return list(dict.fromkeys(wrong_concepts))
