@@ -262,6 +262,16 @@ code_completion 작성 규칙:
 - ___는 빈칸 1개 기준, 여러 빈칸이면 ___를 여러 번 사용하고 blanks 리스트에 순서대로 정답 나열"""
 
 
+def get_quiz_request_no_expl(difficulty: str = "medium") -> str:
+    """난이도에 맞는 문항 요청 블록 반환 (해설 제외 버전, Phase 1 전용)."""
+    cfg = _DIFFICULTY_CONFIG.get(difficulty, _DIFFICULTY_CONFIG["medium"])
+    return _QUIZ_REQUEST_TEMPLATE_NO_EXPL.format(
+        difficulty_label=cfg["label"],
+        difficulty_instruction=cfg["instruction"],
+        distribution=cfg["distribution"],
+        type_note=cfg["type_note"],
+    )
+
 
 QUIZ_USER_PROMPT = """아래 강의 내용을 바탕으로 복습 퀴즈를 생성하세요.
 

@@ -292,6 +292,13 @@ def _call_and_validate(messages: list[dict], max_retries: int = 2) -> dict:
         try:
             json_str = _extract_json(last_raw)
             data = json.loads(json_str)
+            # 불완전한 code_completion 항목 필터링 (blanks/code_template 누락)
+            if "quizzes" in data:
+                data["quizzes"] = [
+                    q for q in data["quizzes"]
+                    if q.get("type") != "code_completion"
+                    or (q.get("blanks") and q.get("code_template"))
+                ]
             validated = QuizResponse.model_validate(data)
             return validated.model_dump()
         except (json.JSONDecodeError, ValidationError, ValueError) as e:
