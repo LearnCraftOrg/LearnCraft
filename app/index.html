@@ -30,10 +30,6 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
         <span>퀴즈 생성</span>
       </a>
-      <a href="personalized-guide.html" class="nav-link">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-        <span>개인화 가이드</span>
-      </a>
       <a href="wrong-notes.html" class="nav-link">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg>
         <span>오답노트</span>
@@ -41,10 +37,6 @@
       <a href="study-plan.html" class="nav-link">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         <span>학습 플랜</span>
-      </a>
-      <a href="quality-report.html" class="nav-link">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-        <span>품질 보고서</span>
       </a>
     </div>
     <div class="nav-actions" id="navActions">
@@ -79,9 +71,9 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
           </div>
           <div>
-            <div class="stat-card-value">24</div>
+            <div class="stat-card-value" id="statLectureCount">-</div>
             <div class="stat-card-label">등록된 강의</div>
-            <div class="stat-card-sub">18개 인덱싱 완료</div>
+            <div class="stat-card-sub" id="statLectureSub">로딩 중...</div>
           </div>
         </div>
         <div class="stat-card">
@@ -89,9 +81,9 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
           </div>
           <div>
-            <div class="stat-card-value">47</div>
+            <div class="stat-card-value" id="statQuizCount">-</div>
             <div class="stat-card-label">총 퀴즈 횟수</div>
-            <div class="stat-card-sub">이번 주 12회</div>
+            <div class="stat-card-sub" id="statQuizSub">로딩 중...</div>
           </div>
         </div>
         <div class="stat-card">
@@ -99,9 +91,9 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
           </div>
           <div>
-            <div class="stat-card-value">73%</div>
+            <div class="stat-card-value" id="statAvgScore">-</div>
             <div class="stat-card-label">평균 정답률</div>
-            <div class="stat-card-sub">지난 주 대비 +5%</div>
+            <div class="stat-card-sub" id="statAvgSub">퀴즈 기록 기반</div>
           </div>
         </div>
       </div>
@@ -120,41 +112,14 @@
             <thead>
               <tr>
                 <th>강의 일자</th>
-                <th>과목</th>
+                <th>주제</th>
                 <th>학습 목표</th>
-                <th>상태</th>
+                <th>트랙</th>
                 <th></th>
               </tr>
             </thead>
-            <tbody>
-              <tr>
-                <td><span class="lecture-date-chip">2024-11-18</span></td>
-                <td class="font-medium text-primary">파이썬 기초</td>
-                <td>리스트와 딕셔너리 자료구조를 이해하고 활용할 수 있다.</td>
-                <td><span class="badge badge-success badge-dot">인덱싱 완료</span></td>
-                <td><a href="lecture-detail.html" class="btn btn-ghost btn-sm">보기</a></td>
-              </tr>
-              <tr>
-                <td><span class="lecture-date-chip">2024-11-15</span></td>
-                <td class="font-medium text-primary">데이터 분석</td>
-                <td>pandas DataFrame을 사용한 데이터 전처리 기법을 익힌다.</td>
-                <td><span class="badge badge-success badge-dot">인덱싱 완료</span></td>
-                <td><a href="lecture-detail.html" class="btn btn-ghost btn-sm">보기</a></td>
-              </tr>
-              <tr>
-                <td><span class="lecture-date-chip">2024-11-13</span></td>
-                <td class="font-medium text-primary">머신러닝 입문</td>
-                <td>지도학습의 개념과 선형 회귀 알고리즘을 이해한다.</td>
-                <td><span class="badge badge-warning badge-dot">처리 중</span></td>
-                <td><a href="lecture-detail.html" class="btn btn-ghost btn-sm">보기</a></td>
-              </tr>
-              <tr>
-                <td><span class="lecture-date-chip">2024-11-11</span></td>
-                <td class="font-medium text-primary">SQL 기초</td>
-                <td>SELECT 쿼리와 JOIN 연산을 사용해 데이터를 조회한다.</td>
-                <td><span class="badge badge-success badge-dot">인덱싱 완료</span></td>
-                <td><a href="lecture-detail.html" class="btn btn-ghost btn-sm">보기</a></td>
-              </tr>
+            <tbody id="recentLecturesTbody">
+              <tr><td colspan="5" class="text-sm text-secondary" style="padding:var(--space-4);">강의 목록 로딩 중...</td></tr>
             </tbody>
           </table>
         </div>
@@ -196,11 +161,44 @@
         </div>
       </div>
 
+      <!-- 학습 도구 -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-header-text">
+            <h2>학습 도구</h2>
+          </div>
+        </div>
+        <div class="grid-2">
+          <a href="personalized-guide.html" class="card card-hover" style="display:flex;align-items:center;gap:var(--space-4);padding:var(--space-5);text-decoration:none;">
+            <div class="stat-card-icon stat-icon-primary" style="flex-shrink:0;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            </div>
+            <div>
+              <div style="font-weight:600;font-size:var(--text-sm);color:var(--color-text-primary);">개인화 학습 가이드</div>
+              <div style="font-size:var(--text-xs);color:var(--color-text-secondary);margin-top:2px;">틀린 개념을 입력하면 맞춤 가이드를 생성합니다.</div>
+            </div>
+          </a>
+          <a href="quality-report.html" class="card card-hover" style="display:flex;align-items:center;gap:var(--space-4);padding:var(--space-5);text-decoration:none;">
+            <div class="stat-card-icon stat-icon-accent" style="flex-shrink:0;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            </div>
+            <div>
+              <div style="font-weight:600;font-size:var(--text-sm);color:var(--color-text-primary);">퀴즈 품질 보고서</div>
+              <div style="font-size:var(--text-xs);color:var(--color-text-secondary);margin-top:2px;">생성된 퀴즈의 품질 평가 결과를 확인합니다.</div>
+            </div>
+          </a>
+        </div>
+      </div>
+
     </div><!-- /.page-content -->
   </div><!-- /.container -->
 </main>
 
 <script>
+  function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
   async function checkAuth() {
     const token = localStorage.getItem('lc_token');
     const navActions = document.getElementById('navActions');
@@ -229,7 +227,6 @@
       if (!res.ok) return;
       const goals = await res.json();
       if (!goals.length) return;
-      // 시험 날짜가 가장 가까운 목표
       const today = new Date();
       const upcoming = goals
         .filter(g => new Date(g.exam_date) >= today)
@@ -249,36 +246,70 @@
     window.location.reload();
   }
 
-  async function loadRecentQuiz() {
+  async function loadDashboard() {
+    // ── 강의 수 + 최근 강의 목록 ──────────────────────────────
+    try {
+      const res = await fetch('/api/lectures');
+      if (!res.ok) throw new Error();
+      const lectures = await res.json();
+
+      document.getElementById('statLectureCount').textContent = lectures.length;
+      document.getElementById('statLectureSub').textContent = `총 ${lectures.length}개 강의`;
+
+      const tbody = document.getElementById('recentLecturesTbody');
+      if (!lectures.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-sm text-secondary" style="padding:var(--space-4);">등록된 강의가 없습니다.</td></tr>';
+      } else {
+        tbody.innerHTML = lectures.slice(0, 5).map(lec => `
+          <tr>
+            <td><span class="lecture-date-chip">${lec.date}</span></td>
+            <td class="font-medium text-primary">${escHtml(lec.content || '-')}</td>
+            <td>${escHtml(lec.learning_goal ? lec.learning_goal.split('\n')[0] : '-')}</td>
+            <td><span class="text-xs text-secondary">${escHtml(lec.subject || '-')}</span></td>
+            <td><a href="lecture-detail.html?date=${lec.date}" class="btn btn-ghost btn-sm">보기</a></td>
+          </tr>
+        `).join('');
+      }
+    } catch (e) {
+      document.getElementById('statLectureCount').textContent = '-';
+      document.getElementById('statLectureSub').textContent = '불러오기 실패';
+    }
+
+    // ── 퀴즈 통계 + 최근 퀴즈 활동 ──────────────────────────────
     const grid = document.getElementById('quizHistoryGrid');
     try {
-      const res = await fetch('/api/quiz/history');
-      if (!res.ok) throw new Error();
-      const history = await res.json();
       const scores = JSON.parse(localStorage.getItem('lc_quiz_results') || '[]');
-      const scoreMap = {};
-      scores.forEach(s => { scoreMap[s.quiz_set_id] = s; });
 
-      const diffLabel = { easy: '쉬움', medium: '보통', hard: '어려움' };
-      const diffClass = { easy: 'badge-success', medium: 'badge-warning', hard: 'badge-error' };
+      document.getElementById('statQuizCount').textContent = scores.length;
+      document.getElementById('statQuizSub').textContent = `완료된 퀴즈 ${scores.length}회`;
 
-      const completed = history.filter(q => scoreMap[q.quiz_set_id]);
-      if (!completed.length) {
+      if (scores.length) {
+        const avg = Math.round(scores.reduce((s, score) => s + score.pct, 0) / scores.length);
+        document.getElementById('statAvgScore').textContent = avg + '%';
+        document.getElementById('statAvgSub').textContent = `${scores.length}회 퀴즈 평균`;
+      } else {
+        document.getElementById('statAvgScore').textContent = '-';
+        document.getElementById('statAvgSub').textContent = '퀴즈를 풀어보세요';
+      }
+
+      if (!scores.length) {
         grid.innerHTML = '<p class="text-sm text-secondary" style="grid-column:1/-1;">완료한 퀴즈가 없습니다. <a href="quiz-setup.html" class="text-primary">퀴즈 풀러 가기 →</a></p>';
         return;
       }
 
-      grid.innerHTML = completed.map(q => {
-        const score = scoreMap[q.quiz_set_id];
-        const title = q.lecture_date || '복합 강의';
+      const diffLabel = { easy: '쉬움', medium: '보통', hard: '어려움' };
+      const diffClass = { easy: 'badge-success', medium: 'badge-warning', hard: 'badge-error' };
+
+      grid.innerHTML = scores.map(score => {
+        const title = score.lecture_date || '복합 강의';
         const date = new Date(score.submitted_at).toLocaleDateString('ko-KR');
-        const diff = q.difficulty || 'medium';
+        const diff = score.difficulty || 'medium';
         return `
           <div class="card card-hover">
             <div class="card-header">
               <div>
                 <div class="card-title">${title}</div>
-                <div class="text-xs text-muted mt-1">${date} · ${q.question_count}문항</div>
+                <div class="text-xs text-muted mt-1">${date} · ${score.total}문항</div>
               </div>
               <span class="badge ${diffClass[diff] || 'badge-warning'}">${diffLabel[diff] || diff}</span>
             </div>
@@ -292,18 +323,20 @@
               </div>
             </div>
             <div class="flex gap-2">
-              <a href="quiz-feedback.html" class="btn btn-primary btn-sm flex-1">피드백 보기</a>
+              <a href="quiz-feedback.html?quiz_set_id=${score.quiz_set_id}" class="btn btn-primary btn-sm flex-1">피드백 보기</a>
               <a href="quiz-setup.html" class="btn btn-secondary btn-sm flex-1">다시 풀기</a>
             </div>
           </div>`;
       }).join('');
     } catch(e) {
+      document.getElementById('statQuizCount').textContent = '-';
+      document.getElementById('statAvgScore').textContent = '-';
       grid.innerHTML = '<p class="text-sm text-secondary" style="grid-column:1/-1;">퀴즈 기록을 불러오지 못했습니다.</p>';
     }
   }
 
   checkAuth();
-  loadRecentQuiz();
+  loadDashboard();
 </script>
 </body>
 </html>
