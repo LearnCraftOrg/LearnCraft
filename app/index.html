@@ -202,7 +202,7 @@
   async function checkAuth() {
     const token = localStorage.getItem('lc_token');
     const navActions = document.getElementById('navActions');
-    if (!token) return;
+    if (!token) return null;
     try {
       const res = await fetch('/api/auth/me', {
         headers: { 'Authorization': `Bearer ${token}` },
@@ -210,15 +210,15 @@
       if (!res.ok) {
         localStorage.removeItem('lc_token');
         localStorage.removeItem('lc_user');
-        return;
+        return null;
       }
       const user = await res.json();
       navActions.innerHTML = `
         <span style="font-size:0.9rem;color:#555;margin-right:8px;">${user.name}님</span>
         <button class="nav-btn-auth" onclick="logout()" style="cursor:pointer;background:none;border:1px solid #ddd;border-radius:6px;padding:6px 14px;font-size:0.85rem;">로그아웃</button>
       `;
-      loadUpcomingExam(token);
-    } catch (e) {}
+      return token;
+    } catch (e) { return null; }
   }
 
   async function loadUpcomingExam(token) {
@@ -246,8 +246,7 @@
     window.location.reload();
   }
 
-  async function loadDashboard() {
-    // ── 강의 수 + 최근 강의 목록 ──────────────────────────────
+  async function loadLectures() {
     try {
       const res = await fetch('/api/lectures');
       if (!res.ok) throw new Error();
@@ -274,25 +273,30 @@
       document.getElementById('statLectureCount').textContent = '-';
       document.getElementById('statLectureSub').textContent = '불러오기 실패';
     }
+  }
 
-    // ── 퀴즈 통계 + 최근 퀴즈 활동 ──────────────────────────────
+  async function loadQuizStats(token) {
     const grid = document.getElementById('quizHistoryGrid');
     try {
-      const scores = JSON.parse(localStorage.getItem('lc_quiz_results') || '[]');
+      const res = await fetch('/api/quiz/records?limit=20', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error();
+      const records = await res.json();
 
-      document.getElementById('statQuizCount').textContent = scores.length;
-      document.getElementById('statQuizSub').textContent = `완료된 퀴즈 ${scores.length}회`;
+      document.getElementById('statQuizCount').textContent = records.length;
+      document.getElementById('statQuizSub').textContent = `완료된 퀴즈 ${records.length}회`;
 
-      if (scores.length) {
-        const avg = Math.round(scores.reduce((s, score) => s + score.pct, 0) / scores.length);
+      if (records.length) {
+        const avg = Math.round(records.reduce((s, r) => s + r.score_pct, 0) / records.length);
         document.getElementById('statAvgScore').textContent = avg + '%';
-        document.getElementById('statAvgSub').textContent = `${scores.length}회 퀴즈 평균`;
+        document.getElementById('statAvgSub').textContent = `${records.length}회 퀴즈 평균`;
       } else {
         document.getElementById('statAvgScore').textContent = '-';
         document.getElementById('statAvgSub').textContent = '퀴즈를 풀어보세요';
       }
 
-      if (!scores.length) {
+      if (!records.length) {
         grid.innerHTML = '<p class="text-sm text-secondary" style="grid-column:1/-1;">완료한 퀴즈가 없습니다. <a href="quiz-setup.html" class="text-primary">퀴즈 풀러 가기 →</a></p>';
         return;
       }
@@ -300,30 +304,31 @@
       const diffLabel = { easy: '쉬움', medium: '보통', hard: '어려움' };
       const diffClass = { easy: 'badge-success', medium: 'badge-warning', hard: 'badge-error' };
 
-      grid.innerHTML = scores.map(score => {
-        const title = score.lecture_date || '복합 강의';
-        const date = new Date(score.submitted_at).toLocaleDateString('ko-KR');
-        const diff = score.difficulty || 'medium';
+      grid.innerHTML = records.map(r => {
+        const title = r.lecture_date || '복합 강의';
+        const date = new Date(r.submitted_at).toLocaleDateString('ko-KR');
+        const diff = r.difficulty || 'medium';
+        const pct = r.score_pct ?? 0;
         return `
           <div class="card card-hover">
             <div class="card-header">
               <div>
                 <div class="card-title">${title}</div>
-                <div class="text-xs text-muted mt-1">${date} · ${score.total}문항</div>
+                <div class="text-xs text-muted mt-1">${date} · ${r.total_questions}문항</div>
               </div>
               <span class="badge ${diffClass[diff] || 'badge-warning'}">${diffLabel[diff] || diff}</span>
             </div>
             <div style="margin-bottom:var(--space-3);">
               <div class="flex items-center justify-between mb-1">
                 <span class="text-xs text-secondary">정답률</span>
-                <span class="text-xs font-semibold text-primary">${score.pct}%</span>
+                <span class="text-xs font-semibold text-primary">${pct}%</span>
               </div>
               <div class="progress-bar-wrap">
-                <div class="progress-bar-fill" style="width:${score.pct}%;${score.pct >= 80 ? 'background:var(--color-success);' : ''}"></div>
+                <div class="progress-bar-fill" style="width:${pct}%;${pct >= 80 ? 'background:var(--color-success);' : ''}"></div>
               </div>
             </div>
             <div class="flex gap-2">
-              <a href="quiz-feedback.html?quiz_set_id=${score.quiz_set_id}" class="btn btn-primary btn-sm flex-1">피드백 보기</a>
+              <a href="quiz-feedback.html?quiz_set_id=${r.quiz_set_id}" class="btn btn-primary btn-sm flex-1">피드백 보기</a>
               <a href="quiz-setup.html" class="btn btn-secondary btn-sm flex-1">다시 풀기</a>
             </div>
           </div>`;
@@ -335,8 +340,27 @@
     }
   }
 
-  checkAuth();
-  loadDashboard();
+  function showGuestQuizState() {
+    document.getElementById('statQuizCount').textContent = '-';
+    document.getElementById('statQuizSub').textContent = '로그인 후 확인 가능';
+    document.getElementById('statAvgScore').textContent = '-';
+    document.getElementById('statAvgSub').textContent = '로그인 후 확인 가능';
+    document.getElementById('quizHistoryGrid').innerHTML =
+      '<p class="text-sm text-secondary" style="grid-column:1/-1;">로그인하면 퀴즈 기록을 볼 수 있어요. <a href="login.html" class="text-primary">로그인 →</a></p>';
+  }
+
+  async function init() {
+    const token = await checkAuth();
+    loadLectures();
+    if (token) {
+      loadQuizStats(token);
+      loadUpcomingExam(token);
+    } else {
+      showGuestQuizState();
+    }
+  }
+
+  init();
 </script>
 </body>
 </html>

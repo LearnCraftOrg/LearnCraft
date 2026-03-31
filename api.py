@@ -62,6 +62,7 @@ async def lifespan(app: FastAPI):
     import src.models.user  # noqa — 모델 등록
     import src.models.wrong_note  # noqa — 모델 등록
     import src.models.study_goal  # noqa — 모델 등록
+    import src.models.quiz_record  # noqa — 모델 등록
     Base.metadata.create_all(bind=engine)
     await asyncio.get_event_loop().run_in_executor(None, _run_indexing)
     yield
@@ -535,17 +536,30 @@ def save_quiz_record(req: QuizRecordCreate, db: Session = Depends(get_db), curre
     from datetime import datetime as dt
     from src.models.quiz_record import QuizRecord
     submitted_at = dt.fromisoformat(req.submitted_at) if req.submitted_at else dt.utcnow()
-    record = QuizRecord(
-        user_id=current_user.id,
-        quiz_set_id=req.quiz_set_id,
-        lecture_date=req.lecture_date,
-        difficulty=req.difficulty,
-        total_questions=req.total_questions,
-        correct_count=req.correct_count,
-        score_pct=req.score_pct,
-        submitted_at=submitted_at,
+    record = (
+        db.query(QuizRecord)
+        .filter(QuizRecord.user_id == current_user.id, QuizRecord.quiz_set_id == req.quiz_set_id)
+        .first()
     )
-    db.add(record)
+    if record:
+        record.lecture_date = req.lecture_date
+        record.difficulty = req.difficulty
+        record.total_questions = req.total_questions
+        record.correct_count = req.correct_count
+        record.score_pct = req.score_pct
+        record.submitted_at = submitted_at
+    else:
+        record = QuizRecord(
+            user_id=current_user.id,
+            quiz_set_id=req.quiz_set_id,
+            lecture_date=req.lecture_date,
+            difficulty=req.difficulty,
+            total_questions=req.total_questions,
+            correct_count=req.correct_count,
+            score_pct=req.score_pct,
+            submitted_at=submitted_at,
+        )
+        db.add(record)
     db.commit()
     db.refresh(record)
     return {"id": record.id, "quiz_set_id": record.quiz_set_id, "score_pct": record.score_pct}

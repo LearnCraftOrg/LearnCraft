@@ -1,12 +1,15 @@
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, UniqueConstraint
 
 from src.database import Base
 
 
 class QuizRecord(Base):
     __tablename__ = "quiz_records"
+    __table_args__ = (
+        UniqueConstraint("user_id", "quiz_set_id", name="uq_quiz_record_user_quizset"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
