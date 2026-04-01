@@ -468,7 +468,7 @@
 
       <!-- Action Bar -->
       <div class="action-bar">
-        <a href="wrong-notes.html" class="btn btn-secondary">
+        <a href="wrong-note.html" class="btn btn-secondary">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
           오답노트 보기
         </a>
@@ -668,8 +668,27 @@
 
     localStorage.setItem('lc_wrong_notes', JSON.stringify(notes));
 
+    if (notes.length === 0) return;
+
+    // 비로그인 오답 노트 (guest DB) — quiz-review.html에서 이미 저장됐을 경우 dedup됨
+    const quizResults = notes.map(n => ({
+      question: n.question,
+      type: n.question_type,
+      options: {},
+      answer: n.correct_answer,
+      user_answer: n.user_answer,
+      is_correct: false,
+      explanation: n.explanation,
+    }));
+    fetch('/api/wrong-note/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ quiz_results: quizResults, lecture_dates: lectureDate ? [lectureDate] : [] }),
+    }).catch(() => {});
+
+    // 로그인한 경우 /api/notes에도 저장
     const token = localStorage.getItem('lc_token');
-    if (!token || notes.length === 0) return;
+    if (!token) return;
     try {
       await fetch('/api/notes', {
         method: 'POST',

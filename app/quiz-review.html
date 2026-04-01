@@ -261,8 +261,8 @@
   </div>
 </main>
 
+<script src="config.js"></script>
 <script>
-  const API = 'http://localhost:8000';
   const TYPE_LABEL = { multiple_choice: '객관식', short_answer: '단답형', code_completion: '코드 완성' };
   const TYPE_BADGE = { multiple_choice: 'badge-muted', short_answer: 'badge-accent', code_completion: 'badge-primary' };
   const DIFF_LABEL = { easy: '쉬움', medium: '중간', hard: '어려움' };
@@ -270,12 +270,18 @@
   let quizData = null;
   let evalResults = null;
   let submitted = false;
+  let warnShown = false;   // 미답변 경고 배너 1회 표시 여부
   let currentIdx = 0;
   let answers = {};        // { quiz_id: value }
   let timerSec = 0;
   let explanationsReady = false;
   let explanationsPollInterval = null;
   let timerInterval = null;
+
+  // ── 공통 검증 헬퍼 ────────────────────────────────────────
+  function isValidAnswer(answer) {
+    return answer !== undefined && String(answer).trim().length > 0;
+  }
 
   function extractConcept(question) {
     const code = question.match(/`([^`]{1,20})`/);
@@ -456,18 +462,21 @@
     const nextBtn = document.getElementById('nextBtn');
     const isLast = currentIdx === quizData.quizzes.length - 1;
     if (submitted) {
-      if (isLast) {
-        nextBtn.onclick = () => { window.location.href = 'quiz-setup.html'; };
-        nextBtn.innerHTML = '새 퀴즈 만들기 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
-      } else {
-        nextBtn.onclick = handleNextOrSubmit;
-        nextBtn.innerHTML = '다음 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
-      }
+      nextBtn.disabled = false;
+      nextBtn.onclick = handleNextOrSubmit;
+      nextBtn.innerHTML = isLast
+        ? '완료'
+        : '다음 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
     } else {
       nextBtn.innerHTML = isLast
         ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> 답안 제출'
         : '다음 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
+      // 현재 문제 미답변 시 버튼 비활성화
+      nextBtn.disabled = !isAnswered(quizData.quizzes[currentIdx]);
     }
+
+    // 경고 배너 및 warnShown 초기화
+    warnShown = false;
 
     // 진행 바
     const pct = Math.round((currentIdx + 1) / quizData.quizzes.length * 100);
@@ -489,21 +498,22 @@
       if (currentIdx < quizData.quizzes.length - 1) {
         goQuestion(currentIdx + 1);
       } else {
-        document.getElementById('scorePanelWrap').scrollIntoView({ behavior: 'smooth' });
+        window.location.href = 'quiz-feedback.html';
       }
       return;
     }
     const isLast = currentIdx === quizData.quizzes.length - 1;
     if (isLast) {
       const unanswered = quizData.quizzes.filter(q => !isAnswered(q)).length;
-      if (unanswered > 0) {
+      if (unanswered > 0 && !warnShown) {
+        // 첫 클릭: 경고만 표시
         const warn = document.getElementById('warnBanner');
         warn.style.display = 'block';
         warn.textContent = `아직 ${unanswered}문항에 답하지 않았습니다. 제출하면 빈 답안으로 처리됩니다. 다시 제출 버튼을 누르면 제출됩니다.`;
-        // 두 번 누르면 제출
-        document.getElementById('nextBtn').onclick = () => submitQuiz(false);
+        warnShown = true;
         return;
       }
+      // 두 번째 클릭 (warnShown=true) 또는 모두 답변 완료: 제출
       submitQuiz(false);
     } else {
       goQuestion(currentIdx + 1);
@@ -512,7 +522,13 @@
 
   function isAnswered(q) {
     if (q.type === 'multiple_choice') return answers[q.quiz_id] !== undefined;
-    return !!(answers[q.quiz_id] || '').trim();
+    return isValidAnswer(answers[q.quiz_id]);
+  }
+
+  function updateNextBtn() {
+    if (submitted) return;
+    const q = quizData.quizzes[currentIdx];
+    document.getElementById('nextBtn').disabled = !isAnswered(q);
   }
 
   // ── 답 저장 ───────────────────────────────────────────────
@@ -527,11 +543,13 @@
       el.querySelector('.answer-key').style.color = sel ? '#fff' : '';
     });
     updateDot(currentIdx, true);
+    updateNextBtn();
   }
 
   function saveTextAnswer(qid, val) {
     answers[qid] = val;
     updateDot(currentIdx, val.trim().length > 0);
+    updateNextBtn();
   }
 
   function updateDot(idx, answered) {
@@ -609,9 +627,13 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ quiz_results: quizResultsForNote, lecture_dates: lectureDates }),
-      }).then(() => {
-        showToast(`오답 ${wrongCount}개가 오답 노트에 저장됐습니다.`);
-      }).catch(() => {});
+      }).then(res => {
+        if (res.ok) {
+          showToast(`오답 ${wrongCount}개가 오답 노트에 저장됐습니다.`);
+        } else {
+          res.text().then(t => console.error('오답 노트 저장 실패:', res.status, t));
+        }
+      }).catch(err => console.error('오답 노트 저장 오류:', err));
     }
 
     applyResults();

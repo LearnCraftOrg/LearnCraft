@@ -22,6 +22,8 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from config.settings import CORS_ORIGINS, GUEST_EMAIL
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -84,12 +86,12 @@ def _ensure_guest_user(engine) -> None:
     from src.models.user import User
     db = SessionLocal()
     try:
-        if not db.query(User).filter(User.email == "guest@learncraft.local").first():
+        if not db.query(User).filter(User.email == GUEST_EMAIL).first():
             import hashlib
             # bcrypt 없이도 동작하도록 sha256 기반 더미 해시 사용
             dummy_hash = "$2b$12$" + hashlib.sha256(b"learncraft_guest").hexdigest()[:53]
             guest = User(
-                email="guest@learncraft.local",
+                email=GUEST_EMAIL,
                 password_hash=dummy_hash,
                 name="게스트",
             )
@@ -118,7 +120,7 @@ app = FastAPI(title="LearnCraft API", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -224,11 +226,11 @@ class RemoveMasteredRequest(BaseModel):
 def _get_guest_user_id(db: Session) -> int:
     """게스트 사용자 ID를 반환합니다 (없으면 생성)."""
     from src.models.user import User
-    guest = db.query(User).filter(User.email == "guest@learncraft.local").first()
+    guest = db.query(User).filter(User.email == GUEST_EMAIL).first()
     if not guest:
         import hashlib
         dummy_hash = "$2b$12$" + hashlib.sha256(b"learncraft_guest").hexdigest()[:53]
-        guest = User(email="guest@learncraft.local", password_hash=dummy_hash, name="게스트")
+        guest = User(email=GUEST_EMAIL, password_hash=dummy_hash, name="게스트")
         db.add(guest)
         db.commit()
         db.refresh(guest)
@@ -556,6 +558,10 @@ def evaluate_answers(req: EvaluateAnswersRequest):
             results[qid] = {"correct": correct, "answer": quiz.get("answer")}
 
         elif qtype == "short_answer":
+            # 빈 답안은 LLM 호출 없이 즉시 오답 처리
+            if not user_ans or not user_ans.strip():
+                results[qid] = {"correct": False, "answer": quiz.get("answer")}
+                continue
             correct = evaluate_short_answer(
                 question=quiz.get("question", ""),
                 correct_answer=quiz.get("answer", ""),

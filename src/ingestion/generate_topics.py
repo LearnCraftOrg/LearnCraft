@@ -11,7 +11,7 @@ import re
 
 from openai import OpenAI
 
-from config.settings import REFINED_DIR, TOPICS_PATH, OPENAI_API_KEY
+from config.settings import REFINED_DIR, TOPICS_PATH, OPENAI_API_KEY, LLM_MODEL
 
 _DATE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})")
 
@@ -56,7 +56,7 @@ def classify_track(topic: str, learning_goals: str, client: OpenAI) -> str:
     track_list = ", ".join(TRACKS)
     user_msg = f"강의 주제: {topic}\n소목차:\n{learning_goals}"
     resp = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model=LLM_MODEL,
         messages=[
             {
                 "role": "system",

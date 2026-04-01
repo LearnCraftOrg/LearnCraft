@@ -15,6 +15,11 @@ def _get_client():
     return _client
 
 
+def normalize(text: str) -> str:
+    """채점용 정규화: trim + 소문자 변환."""
+    return text.strip().lower()
+
+
 def evaluate_short_answer(
     question: str,
     correct_answer: str,
@@ -22,6 +27,7 @@ def evaluate_short_answer(
     explanation: str,
 ) -> bool:
     """LLM을 이용해 서술형 답안이 정답인지 평가. 오류 시 False 반환."""
+    # 빈 답안은 무조건 오답
     if not user_answer or not user_answer.strip():
         return False
     user_prompt = (
@@ -44,9 +50,7 @@ def evaluate_short_answer(
         data = json.loads(response.choices[0].message.content)
         return bool(data.get("correct", False))
     except Exception:
-        # 평가 실패 시 양방향 포함 검사로 폴백
-        ca = correct_answer.lower().strip()
-        ua = user_answer.lower().strip()
-        if not ua:
-            return False
-        return ca in ua or ua in ca
+        # 평가 실패 시 양방향 포함 검사로 폴백 (빈값 방어 포함)
+        ca = normalize(correct_answer)
+        ua = normalize(user_answer)
+        return bool(ua) and (ca in ua or ua in ca)

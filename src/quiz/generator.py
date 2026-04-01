@@ -18,7 +18,7 @@ from typing import Literal, Optional
 from openai import OpenAI
 from pydantic import BaseModel, ValidationError, model_validator
 
-from config.settings import LLM_MODEL, OPENAI_API_KEY
+from config.settings import LLM_MODEL, OPENAI_API_KEY, QUIZ_COUNT
 from src.quiz.prompts import (
     QUIZ_SYSTEM_PROMPT, QUIZ_USER_PROMPT, QUIZ_MULTI_USER_PROMPT,
     EXPLANATION_SYSTEM_PROMPT, EXPLANATION_USER_PROMPT,
@@ -320,7 +320,7 @@ def _call_and_validate(messages: list[dict], max_retries: int = 2) -> dict:
     raise RuntimeError("퀴즈 생성 실패: 최대 재시도 횟수 초과")
 
 
-def _top_up_quizzes(messages: list[dict], existing: list[dict], min_count: int = 8) -> list[dict]:
+def _top_up_quizzes(messages: list[dict], existing: list[dict], min_count: int = QUIZ_COUNT) -> list[dict]:
     """기존 문항이 min_count 미만이면 추가 문항을 생성해 반환. 이미 충분하면 빈 리스트."""
     needed = min_count - len(existing)
     if needed <= 0:
@@ -398,6 +398,15 @@ def generate_quiz_from_context(
     ]
     result = _call_and_validate(messages)
 
+    # 동기 top-up: LLM이 QUIZ_COUNT 미만 반환 시 즉시 보충
+    if len(result["quizzes"]) < QUIZ_COUNT:
+        logger.info("[TOP-UP sync] %d문항 → %d문항 보충 시작", len(result["quizzes"]), QUIZ_COUNT)
+        extra = _top_up_quizzes(messages, result["quizzes"], min_count=QUIZ_COUNT)
+        if extra:
+            needed = QUIZ_COUNT - len(result["quizzes"])
+            result["quizzes"].extend(extra[:needed])
+            logger.info("[TOP-UP sync] 완료: %d문항", len(result["quizzes"]))
+
     for quiz in result["quizzes"]:
         quiz["quiz_id"] = str(uuid4())
 
@@ -455,6 +464,15 @@ def generate_quiz_multi_from_context(
         {"role": "user", "content": user_prompt},
     ]
     result = _call_and_validate(messages)
+
+    # 동기 top-up: LLM이 QUIZ_COUNT 미만 반환 시 즉시 보충
+    if len(result["quizzes"]) < QUIZ_COUNT:
+        logger.info("[TOP-UP sync] %d문항 → %d문항 보충 시작", len(result["quizzes"]), QUIZ_COUNT)
+        extra = _top_up_quizzes(messages, result["quizzes"], min_count=QUIZ_COUNT)
+        if extra:
+            needed = QUIZ_COUNT - len(result["quizzes"])
+            result["quizzes"].extend(extra[:needed])
+            logger.info("[TOP-UP sync] 완료: %d문항", len(result["quizzes"]))
 
     for quiz in result["quizzes"]:
         quiz["quiz_id"] = str(uuid4())
