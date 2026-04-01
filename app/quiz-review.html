@@ -247,6 +247,7 @@
               이전
             </button>
             <a href="quiz-setup.html" class="btn btn-ghost" style="font-size:var(--text-sm);">다시 생성</a>
+            <a href="wrong-notes.html" id="wrongNotesBtn" class="btn btn-ghost" style="font-size:var(--text-sm);display:none;">오답 노트</a>
             <button class="btn btn-primary" id="nextBtn" onclick="handleNextOrSubmit()">
               다음
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
@@ -272,7 +273,44 @@
   let currentIdx = 0;
   let answers = {};        // { quiz_id: value }
   let timerSec = 0;
+  let explanationsReady = false;
+  let explanationsPollInterval = null;
   let timerInterval = null;
+
+  function extractConcept(question) {
+    const code = question.match(/`([^`]{1,20})`/);
+    if (code) return code[1];
+    const paren = question.match(/[（(]([가-힣a-zA-Z\s]{2,15})[）)]/);
+    if (paren) return paren[1].trim();
+    return question.replace(/[?？]/g, '').slice(0, 15).trim();
+  }
+
+  async function saveWrongNotes() {
+    const token = localStorage.getItem('lc_token');
+    if (!token) return;
+
+    const notes = (quizData.quizzes || [])
+      .filter(q => !(evalResults[q.quiz_id] || {}).correct)
+      .map(q => ({
+        question: q.question,
+        question_type: q.type,
+        user_answer: answers[q.quiz_id] || '',
+        correct_answer: (evalResults[q.quiz_id] || {}).answer || q.answer || '',
+        explanation: q.explanation || '',
+        concept_tag: extractConcept(q.question),
+        lecture_date: quizData.lecture_date || '',
+      }));
+
+    if (!notes.length) return;
+
+    try {
+      await fetch(`${API}/api/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ notes }),
+      });
+    } catch (e) {}
+  }
 
   function init() {
     const raw = localStorage.getItem('lc_quiz');
@@ -296,6 +334,9 @@
       updateTimerDisplay();
       timerInterval = setInterval(tickTimer, 1000);
     }
+
+    // 해설 폴링 시작 (백그라운드, UI 변화 없음)
+    pollForExplanations();
   }
 
   // ── 타이머 ────────────────────────────────────────────────
@@ -415,10 +456,13 @@
     const nextBtn = document.getElementById('nextBtn');
     const isLast = currentIdx === quizData.quizzes.length - 1;
     if (submitted) {
-      nextBtn.textContent = isLast ? '완료' : '다음 ';
-      nextBtn.innerHTML = isLast
-        ? '완료'
-        : '다음 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
+      if (isLast) {
+        nextBtn.onclick = () => { window.location.href = 'quiz-setup.html'; };
+        nextBtn.innerHTML = '새 퀴즈 만들기 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
+      } else {
+        nextBtn.onclick = handleNextOrSubmit;
+        nextBtn.innerHTML = '다음 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
+      }
     } else {
       nextBtn.innerHTML = isLast
         ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> 답안 제출'
@@ -442,7 +486,11 @@
 
   function handleNextOrSubmit() {
     if (submitted) {
-      if (currentIdx < quizData.quizzes.length - 1) goQuestion(currentIdx + 1);
+      if (currentIdx < quizData.quizzes.length - 1) {
+        goQuestion(currentIdx + 1);
+      } else {
+        document.getElementById('scorePanelWrap').scrollIntoView({ behavior: 'smooth' });
+      }
       return;
     }
     const isLast = currentIdx === quizData.quizzes.length - 1;
@@ -537,10 +585,16 @@
     }
 
     submitted = true;
-    localStorage.setItem('lc_eval', JSON.stringify({ quizData, evalResults, answers }));
+    document.getElementById('wrongNotesBtn').style.display = '';
+    const evalPayload = JSON.stringify({ quizData, evalResults, answers });
+    localStorage.setItem('lc_eval', evalPayload);
+    if (quizData.quiz_set_id) {
+      localStorage.setItem(`lc_eval_${quizData.quiz_set_id}`, evalPayload);
+    }
 
     applyResults();
     showScorePanel();
+    saveWrongNotes();
 
     // dot & nav 업데이트
     goQuestion(0);
@@ -582,10 +636,88 @@
 
       // 해설
       document.getElementById(`expWrap_${q.quiz_id}`).classList.remove('hidden');
-      document.getElementById(`exp_${q.quiz_id}`).innerHTML =
-        `<strong>정답: ${escHtml(String(correctAnswer))}</strong><br/><br/>${escHtml(q.explanation || '')}`;
+      if (explanationsReady) {
+        document.getElementById(`exp_${q.quiz_id}`).innerHTML =
+          `<strong>정답: ${escHtml(String(correctAnswer))}</strong><br/><br/>${escHtml(q.explanation || '')}`;
+      } else {
+        document.getElementById(`exp_${q.quiz_id}`).innerHTML =
+          `<strong>정답: ${escHtml(String(correctAnswer))}</strong><br/><br/><span style="color:var(--color-text-muted);">⏳ 해설을 생성하는 중입니다. 잠시 후 자동으로 표시됩니다.</span>`;
+      }
     });
   }
+
+  // ── 해설 폴링 ─────────────────────────────────────────────
+  function pollForExplanations() {
+    const quizSetId = quizData && quizData.quiz_set_id;
+    if (!quizSetId) { explanationsReady = true; return; }
+    // 이미 해설이 있으면 폴링 불필요
+    if (quizData.quizzes.every(q => q.explanation && q.explanation.trim())) {
+      explanationsReady = true;
+      return;
+    }
+    explanationsPollInterval = setInterval(async () => {
+      try {
+        const res = await fetch(`${API}/api/quiz/status/${quizSetId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.explanations_status === 'complete') {
+          clearInterval(explanationsPollInterval);
+          explanationsPollInterval = null;
+          // 해설 인메모리 업데이트
+          if (data.explanations) {
+            quizData.quizzes.forEach(q => {
+              if (data.explanations[q.quiz_id] !== undefined) {
+                q.explanation = data.explanations[q.quiz_id];
+              }
+            });
+            localStorage.setItem('lc_quiz', JSON.stringify(quizData));
+          }
+          explanationsReady = true;
+          // 이미 제출된 상태면 즉시 해설 반영
+          if (submitted) revealExplanations();
+        }
+      } catch (_) { /* silent */ }
+    }, 4000);
+  }
+
+  function revealExplanations() {
+    quizData.quizzes.forEach(q => {
+      const correctAnswer = (evalResults && evalResults[q.quiz_id])
+        ? evalResults[q.quiz_id].answer
+        : q.answer;
+      const expBlock = document.getElementById(`exp_${q.quiz_id}`);
+      if (expBlock) {
+        expBlock.innerHTML =
+          `<strong>정답: ${escHtml(String(correctAnswer))}</strong><br/><br/>${escHtml(q.explanation || '')}`;
+      }
+    });
+    // lc_eval localStorage 동기화 (결과 페이지용)
+    const stored = JSON.parse(localStorage.getItem('lc_eval') || '{}');
+    if (stored.quizData) {
+      stored.quizData.quizzes = quizData.quizzes;
+      localStorage.setItem('lc_eval', JSON.stringify(stored));
+    }
+    showToast('✅ 해설이 준비되었습니다');
+  }
+
+  function showToast(message) {
+    const toast = document.createElement('div');
+    toast.textContent = message;
+    toast.style.cssText = [
+      'position:fixed', 'bottom:24px', 'left:50%', 'transform:translateX(-50%)',
+      'background:var(--color-success)', 'color:#fff',
+      'padding:10px 20px', 'border-radius:var(--radius-full)',
+      'font-size:var(--text-sm)', 'font-weight:600',
+      'z-index:9999', 'transition:opacity 0.4s',
+    ].join(';');
+    document.body.appendChild(toast);
+    setTimeout(() => { toast.style.opacity = '0'; }, 1800);
+    setTimeout(() => { toast.remove(); }, 2200);
+  }
+
+  window.addEventListener('beforeunload', () => {
+    if (explanationsPollInterval) clearInterval(explanationsPollInterval);
+  });
 
   function freezeAllInputs() {
     document.querySelectorAll('.answer-option').forEach(el => {
@@ -630,6 +762,33 @@
       const idx = hist.findIndex(h => h.quiz_set_id === entry.quiz_set_id);
       if (idx >= 0) hist[idx] = entry; else hist.unshift(entry);
       localStorage.setItem('lc_quiz_results', JSON.stringify(hist.slice(0, 20)));
+      saveQuizRecord(entry);
+    }
+  }
+
+  async function saveQuizRecord(entry) {
+    const token = localStorage.getItem('lc_token');
+    if (!token) return;
+    try {
+      const res = await fetch(`${API}/api/quiz/records`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          quiz_set_id: entry.quiz_set_id,
+          lecture_date: entry.lecture_date,
+          difficulty: entry.difficulty,
+          total_questions: entry.total,
+          correct_count: entry.correct,
+          score_pct: entry.pct,
+          submitted_at: entry.submitted_at,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        console.error('[saveQuizRecord] HTTP', res.status, body);
+      }
+    } catch (err) {
+      console.error('[saveQuizRecord] Network error', err);
     }
   }
 
