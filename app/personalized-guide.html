@@ -22,28 +22,51 @@
     }
     .concept-textarea:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(79,70,229,.12); }
 
-    /* 핵심 개념 그리드 */
+    /* 핵심 개념 태그 목록 */
+    .key-concepts-list { list-style: none; padding: 0; margin: var(--space-3) 0 0; display: flex; flex-wrap: wrap; gap: var(--space-2); }
+    .key-concepts-list li {
+      background: var(--color-primary-light, #EEF2FF);
+      color: var(--color-primary);
+      border-radius: var(--radius-full);
+      padding: 4px 14px;
+      font-size: var(--text-sm); font-weight: 600;
+    }
+
+    /* 개념 설명 카드 */
     .concept-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: var(--space-4);
+      display: flex; flex-direction: column; gap: var(--space-4);
       margin-top: var(--space-4);
     }
     .concept-card {
-      padding: var(--space-4);
+      padding: var(--space-5);
       border: 1px solid var(--color-border);
       border-radius: var(--radius-md);
       background: var(--color-surface);
     }
     .concept-term {
-      font-size: var(--text-sm); font-weight: 700;
+      font-size: var(--text-base); font-weight: 700;
       color: var(--color-primary);
-      margin-bottom: var(--space-2);
+      margin-bottom: var(--space-3);
     }
-    .concept-desc { font-size: var(--text-sm); color: var(--color-text-secondary); line-height: 1.6; }
+    .concept-desc { font-size: var(--text-sm); color: var(--color-text-secondary); line-height: 1.7; margin-bottom: var(--space-3); }
+    .concept-example-label { font-size: var(--text-xs); font-weight: 600; color: var(--color-text-muted); margin-bottom: var(--space-1); }
+    .concept-code {
+      background: #1e1e2e;
+      border-radius: var(--radius-sm);
+      padding: var(--space-3) var(--space-4);
+      overflow-x: auto;
+      margin: 0;
+    }
+    .concept-code code {
+      color: #a6e3a1;
+      font-family: 'Courier New', Consolas, monospace;
+      font-size: 0.82rem;
+      white-space: pre;
+      line-height: 1.6;
+    }
 
-    /* 복습 포인트 */
-    .review-list { list-style: none; padding: 0; margin: var(--space-4) 0 0; }
+    /* 공통 리스트 */
+    .review-list { list-style: none; padding: 0; margin: var(--space-3) 0 0; }
     .review-list li {
       display: flex; align-items: flex-start; gap: var(--space-3);
       padding: var(--space-3) 0;
@@ -56,12 +79,15 @@
       background: var(--color-primary); flex-shrink: 0; margin-top: 7px;
     }
 
-    /* 요약 */
-    .summary-block {
-      font-size: var(--text-sm); line-height: 1.8;
-      color: var(--color-text-secondary);
-      white-space: pre-wrap;
+    /* 흔한 오해 */
+    .confusion-item {
+      padding: var(--space-3) 0;
+      border-bottom: 1px solid var(--color-border-light);
+      font-size: var(--text-sm); line-height: 1.6;
     }
+    .confusion-item:last-child { border-bottom: none; }
+    .confusion-misconception { color: #B91C1C; margin-bottom: 4px; }
+    .confusion-correction { color: #15803D; }
 
     .loading-spinner {
       width: 40px; height: 40px;
@@ -161,34 +187,57 @@
         <!-- 결과 -->
         <div class="hidden" id="guideResult">
 
-          <!-- 핵심 개념 -->
+          <!-- 1. 핵심 개념 -->
           <div class="section">
             <div class="section-header">
               <div class="section-header-text">
-                <h2>핵심 개념</h2>
+                <h2>1. 핵심 개념</h2>
                 <p>집중적으로 복습해야 할 개념들입니다.</p>
+              </div>
+            </div>
+            <div class="card" style="padding:var(--space-4) var(--space-5);">
+              <ul class="key-concepts-list" id="keyConceptsList"></ul>
+            </div>
+          </div>
+
+          <!-- 2. 개념 설명 -->
+          <div class="section">
+            <div class="section-header">
+              <div class="section-header-text">
+                <h2>2. 개념 설명</h2>
+                <p>각 핵심 개념의 상세 설명과 예시입니다.</p>
               </div>
             </div>
             <div class="concept-grid" id="conceptGrid"></div>
           </div>
 
-          <!-- 요약 -->
+          <!-- 3. 핵심 요약 -->
           <div class="section">
             <div class="section-header">
-              <div class="section-header-text"><h2>학습 요약</h2></div>
+              <div class="section-header-text"><h2>3. 핵심 요약</h2></div>
             </div>
-            <div class="card" style="padding:var(--space-5);">
-              <div class="summary-block" id="summaryBlock"></div>
+            <div class="card" style="padding:var(--space-4) var(--space-5);">
+              <ul class="review-list" id="summaryList"></ul>
             </div>
           </div>
 
-          <!-- 복습 포인트 -->
+          <!-- 4. 흔한 오해 -->
           <div class="section">
             <div class="section-header">
-              <div class="section-header-text"><h2>복습 포인트</h2></div>
+              <div class="section-header-text"><h2>4. 흔한 오해</h2></div>
             </div>
             <div class="card" style="padding:var(--space-4) var(--space-5);">
-              <ul class="review-list" id="reviewList"></ul>
+              <div id="confusionList"></div>
+            </div>
+          </div>
+
+          <!-- 5. 실용적 응용 -->
+          <div class="section">
+            <div class="section-header">
+              <div class="section-header-text"><h2>5. 실용적 응용</h2></div>
+            </div>
+            <div class="card" style="padding:var(--space-4) var(--space-5);">
+              <ul class="review-list" id="applicationList"></ul>
             </div>
           </div>
 
@@ -272,24 +321,47 @@
   function renderGuide(data) {
     document.getElementById('loadingState').classList.add('hidden');
 
-    // 핵심 개념
-    const grid = document.getElementById('conceptGrid');
-    const concepts = data.key_concepts || [];
-    grid.innerHTML = concepts.map(c => `
-      <div class="concept-card">
+    // 1. 핵심 개념 (태그 목록)
+    const keyConcepts = data.key_concepts || [];
+    document.getElementById('keyConceptsList').innerHTML = keyConcepts.map(c =>
+      `<li>${escHtml(typeof c === 'string' ? c : c.term || '')}</li>`
+    ).join('') || '<li>개념 데이터가 없습니다.</li>';
+
+    // 2. 개념 설명 (설명 + 코드 예시)
+    const explanations = data.concept_explanations || data.key_concepts || [];
+    document.getElementById('conceptGrid').innerHTML = explanations.map(c => {
+      if (typeof c === 'string') return '';
+      const exampleHtml = c.example
+        ? `<div class="concept-example-label">예시:</div>
+           <pre class="concept-code"><code>${escHtml(c.example)}</code></pre>`
+        : '';
+      return `<div class="concept-card">
         <div class="concept-term">${escHtml(c.term || '')}</div>
         <div class="concept-desc">${escHtml(c.description || '')}</div>
-      </div>
-    `).join('') || '<p class="text-sm text-secondary">개념 데이터가 없습니다.</p>';
+        ${exampleHtml}
+      </div>`;
+    }).join('') || '<p class="text-sm text-secondary">개념 설명이 없습니다.</p>';
 
-    // 요약
-    document.getElementById('summaryBlock').textContent = data.summary || '';
-
-    // 복습 포인트
-    const points = data.review_points || [];
-    document.getElementById('reviewList').innerHTML = points.map(p =>
+    // 3. 핵심 요약
+    const summary = data.key_summary || data.review_points || [];
+    document.getElementById('summaryList').innerHTML = summary.map(p =>
       `<li>${escHtml(p)}</li>`
-    ).join('') || '<li>복습 포인트가 없습니다.</li>';
+    ).join('') || '<li>요약 데이터가 없습니다.</li>';
+
+    // 4. 흔한 오해
+    const confusions = data.common_confusions || [];
+    document.getElementById('confusionList').innerHTML = confusions.map(c =>
+      `<div class="confusion-item">
+        <div class="confusion-misconception">❌ [오해]: ${escHtml(c.misconception || '')}</div>
+        <div class="confusion-correction">✅ [올바른 이해]: ${escHtml(c.correction || '')}</div>
+      </div>`
+    ).join('') || '<p class="text-sm text-secondary">데이터가 없습니다.</p>';
+
+    // 5. 실용적 응용
+    const applications = data.practical_applications || [];
+    document.getElementById('applicationList').innerHTML = applications.map(a =>
+      `<li>${escHtml(a)}</li>`
+    ).join('') || '<li>데이터가 없습니다.</li>';
 
     document.getElementById('guideResult').classList.remove('hidden');
   }
@@ -302,9 +374,16 @@
 
   function downloadGuide() {
     if (!guideData) return;
-    const concepts = (guideData.key_concepts || []).map(c => `### ${c.term}\n${c.description}`).join('\n\n');
-    const points = (guideData.review_points || []).map(p => `- ${p}`).join('\n');
-    const md = `# 개인화 학습 가이드\n\n## 핵심 개념\n\n${concepts}\n\n## 학습 요약\n\n${guideData.summary || ''}\n\n## 복습 포인트\n\n${points}\n`;
+    const concepts = (guideData.key_concepts || []).map(c => `- ${typeof c === 'string' ? c : c.term || ''}`).join('\n');
+    const explanations = (guideData.concept_explanations || []).map(c =>
+      `### ${c.term || ''}\n- 설명: ${c.description || ''}\n${c.example ? `- 예시:\n\`\`\`\n${c.example}\n\`\`\`` : ''}`
+    ).join('\n\n');
+    const summary = (guideData.key_summary || guideData.review_points || []).map(p => `- ${p}`).join('\n');
+    const confusions = (guideData.common_confusions || []).map(c =>
+      `- [오해]: ${c.misconception || ''} / [올바른 이해]: ${c.correction || ''}`
+    ).join('\n');
+    const applications = (guideData.practical_applications || []).map(a => `- ${a}`).join('\n');
+    const md = `# 개인화 학습 가이드\n\n## 1. 핵심 개념\n\n${concepts}\n\n## 2. 개념 설명\n\n${explanations}\n\n## 3. 핵심 요약\n\n${summary}\n\n## 4. 흔한 오해\n\n${confusions}\n\n## 5. 실용적 응용\n\n${applications}\n`;
     const blob = new Blob([md], { type: 'text/markdown' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
