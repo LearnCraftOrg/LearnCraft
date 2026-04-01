@@ -21,7 +21,9 @@ from pydantic import BaseModel, ValidationError, model_validator
 from config.settings import LLM_MODEL, OPENAI_API_KEY
 from src.quiz.prompts import (
     QUIZ_SYSTEM_PROMPT, QUIZ_USER_PROMPT, QUIZ_MULTI_USER_PROMPT,
+    EXPLANATION_SYSTEM_PROMPT, EXPLANATION_USER_PROMPT,
     _DIFFICULTY_CONFIG, _QUIZ_REQUEST_TEMPLATE,
+    get_quiz_request_no_expl,
 )
 from src.rag.pipeline import build_context_by_date, build_context_by_query
 
@@ -66,7 +68,7 @@ class QuizItem(BaseModel):
     question: str
     options: Optional[QuizOptions] = None
     answer: str
-    explanation: str
+    explanation: str = ""
     # code_completion 전용 필드
     code_template: Optional[str] = None    # 빈칸(___)이 포함된 실행 가능한 전체 코드
     blanks: Optional[list[str]] = None     # 정답 목록 (빈칸 순서와 일치)
@@ -195,6 +197,84 @@ def _save_quiz_log(record: dict) -> Path:
         json.dump(record, f, indent=2, ensure_ascii=False)
     return file_path
 
+def generate_explanations(quiz_set_id: str, quizzes: list[dict], lecture_context: str) -> dict:
+    """문제+정답을 받아 해설을 별도 LLM 호출로 생성.
+
+    Returns:
+        {quiz_id: explanation_str} 형태의 dict
+    """
+    quiz_items_for_prompt = []
+    for q in quizzes:
+        item = {
+            "quiz_id": q["quiz_id"],
+            "type": q["type"],
+            "question": q["question"],
+            "answer": q["answer"],
+        }
+        if q.get("options"):
+            item["options"] = q["options"]
+        if q.get("code_template"):
+            item["code_template"] = q["code_template"]
+        quiz_items_for_prompt.append(item)
+
+    user_prompt = EXPLANATION_USER_PROMPT.format(
+        lecture_context=lecture_context,
+        quiz_items_json=json.dumps(quiz_items_for_prompt, ensure_ascii=False, indent=2),
+    )
+    t = time.perf_counter()
+    response = _get_client().chat.completions.create(
+        model=LLM_MODEL,
+        messages=[
+            {"role": "system", "content": EXPLANATION_SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt},
+        ],
+        temperature=0.5,
+        max_tokens=4096,
+    )
+    logger.debug("[TIMING] 해설 LLM 호출: %.2fs", time.perf_counter() - t)
+    raw = response.choices[0].message.content
+    json_str = _extract_json(raw)
+    data = json.loads(json_str)
+    return {item["quiz_id"]: item["explanation"] for item in data["explanations"]}
+
+
+def _update_quiz_file_with_explanations(file_path: Path, explanations_map: dict) -> None:
+    """생성된 해설을 quiz JSON에 병합하고 explanations_status를 'complete'로 업데이트."""
+    with open(file_path, "r", encoding="utf-8") as f:
+        record = json.load(f)
+    for quiz in record["quizzes"]:
+        qid = quiz.get("quiz_id", "")
+        if qid in explanations_map:
+            quiz["explanation"] = explanations_map[qid]
+    record["explanations_status"] = "complete"
+    with open(file_path, "w", encoding="utf-8") as f:
+        json.dump(record, f, indent=2, ensure_ascii=False)
+
+
+def _spawn_background_pipeline(
+    log_path: Path, quizzes: list[dict], lecture_context: str, quiz_set_id: str
+) -> None:
+    """백그라운드 스레드: 해설 생성 → 파일 업데이트 → 품질 평가."""
+    import threading
+
+    def _run():
+        try:
+            t = time.perf_counter()
+            explanations_map = generate_explanations(quiz_set_id, quizzes, lecture_context)
+            _update_quiz_file_with_explanations(log_path, explanations_map)
+            logger.info("[TIMING] 해설 생성+저장 완료: %.2fs", time.perf_counter() - t)
+            from src.quiz.evaluator.runner import run_evaluation_from_file
+            run_evaluation_from_file(str(log_path))
+        except Exception as e:
+            logger.warning("백그라운드 파이프라인 실패: %s", e)
+            try:
+                _update_quiz_file_with_explanations(log_path, {})
+            except Exception:
+                pass
+
+    threading.Thread(target=_run, daemon=True).start()
+
+
 def _call_and_validate(messages: list[dict], max_retries: int = 2) -> dict:
     """LLM 호출 → JSON 추출 → Pydantic 검증 → dict 반환. 실패 시 1회 재시도."""
     current_messages = messages
@@ -212,6 +292,13 @@ def _call_and_validate(messages: list[dict], max_retries: int = 2) -> dict:
         try:
             json_str = _extract_json(last_raw)
             data = json.loads(json_str)
+            # 불완전한 code_completion 항목 필터링 (blanks/code_template 누락)
+            if "quizzes" in data:
+                data["quizzes"] = [
+                    q for q in data["quizzes"]
+                    if q.get("type") != "code_completion"
+                    or (q.get("blanks") and q.get("code_template"))
+                ]
             validated = QuizResponse.model_validate(data)
             return validated.model_dump()
         except (json.JSONDecodeError, ValidationError, ValueError) as e:
@@ -303,7 +390,7 @@ def generate_quiz_from_context(
         content=curriculum.get("content", ""),
         learning_goal=curriculum.get("learning_goal", ""),
         lecture_context=ctx["lecture_context"],
-        quiz_request=get_quiz_request(difficulty),
+        quiz_request=get_quiz_request_no_expl(difficulty),
     )
     messages = [
         {"role": "system", "content": QUIZ_SYSTEM_PROMPT},
@@ -324,9 +411,11 @@ def generate_quiz_from_context(
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "lecture_date": date,
         "difficulty": difficulty,
+        "explanations_status": "pending",
         "retrieval_sources": ctx["retrieval_sources"],
         **result,
     }
+
 
     log_path = _save_quiz_log(record)
     logger.info("[TIMING] 퀴즈 생성 전체 (date=%s): %.2fs | %d문항", date, time.perf_counter()-t_total, len(result['quizzes']))
@@ -337,6 +426,8 @@ def generate_quiz_from_context(
         args=(log_path, messages, ctx["retrieval_sources"]),
         daemon=True,
     ).start()
+    # 백그라운드: 해설 생성 → 파일 업데이트 → 품질 평가
+    _spawn_background_pipeline(log_path, result["quizzes"], ctx["lecture_context"], record["quiz_set_id"])
 
     return record
 
@@ -357,7 +448,7 @@ def generate_quiz_multi_from_context(
         curriculum_summary=ctx["curriculum_summary"] or "전체 강의",
         user_query_section=user_query_section,
         lecture_context=ctx["lecture_context"],
-        quiz_request=get_quiz_request(difficulty),
+        quiz_request=get_quiz_request_no_expl(difficulty),
     )
     messages = [
         {"role": "system", "content": QUIZ_SYSTEM_PROMPT},
@@ -377,9 +468,11 @@ def generate_quiz_multi_from_context(
         "quiz_set_id": str(uuid4()),
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "difficulty": difficulty,
+        "explanations_status": "pending",
         "retrieval_sources": ctx["retrieval_sources"],
         **result,
     }
+
 
     log_path = _save_quiz_log(record)
     logger.info("[TIMING] 퀴즈(multi) 생성 전체: %.2fs | %d문항", time.perf_counter()-t_total, len(result['quizzes']))
@@ -389,6 +482,8 @@ def generate_quiz_multi_from_context(
         args=(log_path, messages, ctx["retrieval_sources"]),
         daemon=True,
     ).start()
+    # 백그라운드: 해설 생성 → 파일 업데이트 → 품질 평가
+    _spawn_background_pipeline(log_path, result["quizzes"], ctx["lecture_context"], record["quiz_set_id"])
 
     return record
 

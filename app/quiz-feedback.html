@@ -514,7 +514,10 @@
 
   // ── 렌더링 ────────────────────────────────────────────────────────────────
   function renderFeedback() {
-    const raw = localStorage.getItem('lc_eval');
+    const params = new URLSearchParams(window.location.search);
+    const quizSetId = params.get('quiz_set_id');
+    const raw = (quizSetId && localStorage.getItem(`lc_eval_${quizSetId}`))
+      || localStorage.getItem('lc_eval');
     if (!raw) {
       document.getElementById('cardList').innerHTML =
         '<p class="text-sm text-secondary" style="padding:32px 0;">퀴즈 결과 데이터가 없습니다. 먼저 퀴즈를 풀어주세요.</p>';

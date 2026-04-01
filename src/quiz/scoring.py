@@ -22,6 +22,8 @@ def evaluate_short_answer(
     explanation: str,
 ) -> bool:
     """LLM을 이용해 서술형 답안이 정답인지 평가. 오류 시 False 반환."""
+    if not user_answer or not user_answer.strip():
+        return False
     user_prompt = (
         f"문제: {question}\n"
         f"모범 답안: {correct_answer}\n"
@@ -45,4 +47,6 @@ def evaluate_short_answer(
         # 평가 실패 시 양방향 포함 검사로 폴백
         ca = correct_answer.lower().strip()
         ua = user_answer.lower().strip()
+        if not ua:
+            return False
         return ca in ua or ua in ca
