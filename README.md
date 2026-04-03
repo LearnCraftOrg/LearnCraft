@@ -65,8 +65,7 @@ LearnCraft/
 │   └── auth.py             # 인증
 ├── config/
 │   └── settings.py         # 환경 변수 설정
-├── refined/                # 정제된 강의 마크다운 (YYYY-MM-DD_refined.md)
-├── data              # 강의 데이터 및 ChromaDB 로컬 저장소
+├── data                    # 강의 데이터 및 ChromaDB 로컬 저장소
 └── requirements.txt
 ```
 
