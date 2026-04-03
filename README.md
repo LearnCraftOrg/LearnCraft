@@ -38,6 +38,11 @@
 
 ---
 
+## 시스템 아키텍쳐
+<img width="7722" height="7515" alt="Quiz Creation and Learning-2026-04-03-143335" src="https://github.com/user-attachments/assets/ad954e52-6bd0-4297-a471-154408182d50" />
+
+---
+
 ## 프로젝트 구조
 
 ```
